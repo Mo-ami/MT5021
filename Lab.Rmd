@@ -4,6 +4,7 @@ title: "Lab"
 output:
   html_document:
     number_sections: true
+  pdf_document: default
 fontsize: 11pt
 ---
 
@@ -276,7 +277,7 @@ cook <- cooks.distance(m_all)
 lev  <- hatvalues(m_all)
 
 n <- nrow(cig)
-thr <- 4/n                            # ett vanligt riktmärke för att flagga Cook's D
+thr <- 4/n                           
 flag <- which(cook > thr)
 data.frame(brand = cig$brand[flag], cooksD = cook[flag], leverage = lev[flag])
 
@@ -370,6 +371,10 @@ tab_reduced[order(tab_reduced$RMSEP_LOOCV), ]
 * **Bästa prediktor:** *Tjära*. Den ger lägst LOOCV-RMSEP och högst/lika högt justerat $R^2$ både med och utan den tvivelaktiga observationen.
 * **Övriga:** *Nikotin* förklarar CO väl ensam men tillför nästan inget utöver tjära (kollinearitet). *Vikt* är svag.
 * **Rekommenderad modell för prediktion:** **CO \~ tar** (enkel modell). Utan outlieren förbättras RMSEP ytterligare (≈1.16 vs ≈1.70) och adj.$R^2$ ökar (≈0.93). Modellen är bäst, enklast och mest stabil.
+
+
+Vi tar bort outliern för att skapa ett bättre modell för prediktion av CO. 
+
 
 
 
