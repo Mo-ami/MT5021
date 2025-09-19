@@ -363,7 +363,7 @@ anpassa modellen</h2>
 och simulerar <span class="math inline">\(y=\beta_0+\beta_1
 x+\varepsilon\)</span> med <span class="math inline">\(\beta_0=2\)</span>, <span class="math inline">\(\beta_1=1\)</span>, <span class="math inline">\(\varepsilon\sim\mathcal{N}(0,\sigma^2)\)</span>,
 <span class="math inline">\(\sigma=3\)</span>. Dessa värden ger <span class="math inline">\(R^2\)</span> mellan 70–90%.</p>
-<pre class="r"><code>set.seed(123)                 # reproducerbart en gång 
+<pre class="r"><code>set.seed(123)                 # reproducerbart  
 x &lt;- 1:20
 beta0 &lt;- 2
 beta1 &lt;- 1
@@ -756,13 +756,13 @@ inte helt linjärt.</li>
 <strong>heteroskedasticitet</strong> (större spridning vid höga
 förklarade värden).</li>
 <li><strong>Residuals vs Leverage:</strong> observation
-<strong>30</strong> har <strong>hög hävstång</strong> och <strong>stort
+<strong>3</strong> har <strong>hög hävstång</strong> och <strong>stort
 residual</strong> (nära/över Cook’s) ⇒
 <strong>inflytelserik</strong>.</li>
 </ul>
 <p>Den multipla linjära modellen är delvis rimlig men diagnosen visar
 möjlig icke-linearitet, icke-konstant varians och en inflytelserik punkt
-(nr 30) som bör utredas/hanteras.</p>
+(nr 3) som bör utredas/hanteras.</p>
 </div>
 <div id="e-identifiera-och-uteslut-den-tvivelaktiga-observationen-anpassa-om" class="section level2" number="2.5">
 <h2><span class="header-section-number">2.5</span> (e) Identifiera och
@@ -773,7 +773,7 @@ cook &lt;- cooks.distance(m_all)
 lev  &lt;- hatvalues(m_all)
 
 n &lt;- nrow(cig)
-thr &lt;- 4/n                            # ett vanligt riktmärke för att flagga Cook&#39;s D
+thr &lt;- 4/n                            
 flag &lt;- which(cook &gt; thr)
 data.frame(brand = cig$brand[flag], cooksD = cook[flag], leverage = lev[flag])</code></pre>
 <pre><code>##            brand    cooksD  leverage
@@ -843,10 +843,9 @@ justerat <span class="math inline">\(R^2\)</span> från 0.907 →
 <strong>1.16</strong>).</li>
 </ul></li>
 </ul>
-<p><strong>Hur presentera:</strong> Redovisa resultaten <strong>med och
-utan</strong> outlier. Slutsatsen är robust: CO förklaras främst av
-<strong>tjära</strong>; outlieren påverkade koefficienterna (framför
-allt tecknet för nikotin) och försämrade passformen.</p>
+<p>Slutsatsen: CO förklaras främst av <strong>tjära</strong>; outlieren
+påverkade koefficienterna (framför allt tecknet för nikotin) och
+försämrade passformen.</p>
 </div>
 <div id="f-modellval-för-prediktion-justerat-r2-och-loocv-rmsep" class="section level2" number="2.6">
 <h2><span class="header-section-number">2.6</span> (f) Modellval för
@@ -858,10 +857,6 @@ LOOCV-RMSEP)</h2>
 <li>tar+nico; tar+weight; nico+weight</li>
 <li>tar+nico+weight (full)</li>
 </ul>
-<p>Du kan beräkna med eller utan den tvivelaktiga observationen;
-motivera ditt val. Nedan visar vi båda och väljer modellen med
-<strong>lägst RMSEP</strong> (vid lika RMSEP bryter vi med högre
-justerat <span class="math inline">\(R^2\)</span> och parsimoni).</p>
 <pre class="r"><code># Hjälpare: LOOCV-RMSEP för en linjär modell specificerad med formel och data.frame
 loocv_rmsep &lt;- function(formula, data) {
   n &lt;- nrow(data)
@@ -932,6 +927,8 @@ tar</strong> (enkel modell). Utan outlieren förbättras RMSEP ytterligare
 (≈1.16 vs ≈1.70) och adj.<span class="math inline">\(R^2\)</span> ökar
 (≈0.93). Modellen är bäst, enklast och mest stabil.</li>
 </ul>
+<p>Vi tar bort outliern för att skapa ett bättre modell för prediktion
+av CO.</p>
 </div>
 </div>
 

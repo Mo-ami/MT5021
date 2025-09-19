@@ -4,7 +4,6 @@ title: "Lab"
 output:
   html_document:
     number_sections: true
-  pdf_document: default
 fontsize: 11pt
 ---
 
@@ -16,7 +15,7 @@ Vi genererar heltal $x=1,\dots,20$ och simulerar
 $y=\beta_0+\beta_1 x+\varepsilon$ med $\beta_0=2$, $\beta_1=1$, $\varepsilon\sim\mathcal{N}(0,\sigma^2)$, $\sigma=3$. Dessa värden ger $R^2$ mellan 70–90%.
 
 ```{r}
-set.seed(123)                 # reproducerbart en gång 
+set.seed(123)                 # reproducerbart  
 x <- 1:20
 beta0 <- 2
 beta1 <- 1
@@ -264,9 +263,9 @@ par(op)
 * **Residuals vs Fitted:** svag krökning och systematik; inte helt linjärt.
 * **Q–Q:** nära linjen men några svansavvikelser (t.ex. 17, 25) ⇒ något tunga svansar.
 * **Scale–Location:** ökande trend → tecken på **heteroskedasticitet** (större spridning vid höga förklarade värden).
-* **Residuals vs Leverage:** observation **30** har **hög hävstång** och **stort residual** (nära/över Cook’s) ⇒ **inflytelserik**.
+* **Residuals vs Leverage:** observation **3** har **hög hävstång** och **stort residual** (nära/över Cook’s) ⇒ **inflytelserik**.
 
-Den multipla linjära modellen är delvis rimlig men diagnosen visar möjlig icke-linearitet, icke-konstant varians och en inflytelserik punkt (nr 30) som bör utredas/hanteras.
+Den multipla linjära modellen är delvis rimlig men diagnosen visar möjlig icke-linearitet, icke-konstant varians och en inflytelserik punkt (nr 3) som bör utredas/hanteras.
 
 ## (e) Identifiera och uteslut den tvivelaktiga observationen, anpassa om
 
@@ -277,7 +276,7 @@ cook <- cooks.distance(m_all)
 lev  <- hatvalues(m_all)
 
 n <- nrow(cig)
-thr <- 4/n                           
+thr <- 4/n                            
 flag <- which(cook > thr)
 data.frame(brand = cig$brand[flag], cooksD = cook[flag], leverage = lev[flag])
 
@@ -310,7 +309,7 @@ c(R2_full = summary(m_all)$r.squared,
   * **Nikotin** blir positiv men **icke-signifikant**; **vikt** fortsatt icke-signifikant.
   * Modellens passform **förbättras**: $R^2$ från 0.919 → **0.935**, justerat $R^2$ från 0.907 → **0.925**, och residual-SE minskar (≈1.45 → **1.16**).
 
-**Hur presentera:** Redovisa resultaten **med och utan** outlier. Slutsatsen är robust: CO förklaras främst av **tjära**; outlieren påverkade koefficienterna (framför allt tecknet för nikotin) och försämrade passformen.
+Slutsatsen: CO förklaras främst av **tjära**; outlieren påverkade koefficienterna (framför allt tecknet för nikotin) och försämrade passformen.
 
 ## (f) Modellval för prediktion (justerat $R^2$ och LOOCV-RMSEP)
 
@@ -320,7 +319,6 @@ Vi jämför kandidater med justerat $R^2$ och LOOCV-RMSEP. Vi överväger:
 * tar+nico; tar+weight; nico+weight
 * tar+nico+weight (full)
 
-Du kan beräkna med eller utan den tvivelaktiga observationen; motivera ditt val. Nedan visar vi båda och väljer modellen med **lägst RMSEP** (vid lika RMSEP bryter vi med högre justerat $R^2$ och parsimoni).
 
 ```{r}
 # Hjälpare: LOOCV-RMSEP för en linjär modell specificerad med formel och data.frame
@@ -374,6 +372,7 @@ tab_reduced[order(tab_reduced$RMSEP_LOOCV), ]
 
 
 Vi tar bort outliern för att skapa ett bättre modell för prediktion av CO. 
+
 
 
 
