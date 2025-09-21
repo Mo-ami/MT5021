@@ -226,14 +226,32 @@ m_all <- lm(CO ~ tar + nico + weight, data = cig)
 summary(m_all)
 ```
 
-**Tolkning 2(b):**
+### Tolkning 2(b) – Multipel regression (CO \~ tar + nico + weight)
 
-* I den multipla modellen är **tjära** positiv och **signifikant** (β≈0.96, p≈7e-4).
-* **Nikotin** blir **icke-signifikant** och byter tecken (β≈−2.6, p≈0.51) – typiskt tecken på **kollinearitet** med tjära.
-* **Vikt** är också **icke-signifikant** (p≈0.97).
-* $R^2=0.919$ är bara marginellt högre än för CO\~tar, men **justerat $R^2=0.907$ är lägre** än för CO\~tar (≈0.913), och residual-SE är större (1.45 vs 1.40).
+**Lutningskoefficienter jämfört med (a):**
 
-Att lägga till nikotin och vikt ger ingen praktisk förbättring; **CO\~tar** räcker bäst av de provade modellerna.
+* **tar:** β ≈ 0.96 (p ≈ 0.0007) i multipel modellen, jämfört med β ≈ 0.80 i enkel. Fortsatt **positiv och signifikant** – i linje med (a), och något starkare när vi kontrollerar för övriga variabler.
+* **nico:** β går från **+12.40 (starkt signifikant)** i enkel till **−2.63 (icke-signifikant, p ≈ 0.51)** i multipel. Detta **teckenbyte** tyder på stark **kollinearitet** med tar: den positiva effekt som syntes i enkel regression var till stor del gemensam med tar och försvinner när tar hålls konstant.
+* **weight:** β ≈ +25.07 (svagt stöd, p ≈ 0.02) i enkel → **≈ −0.13 (p ≈ 0.97)** i multipel. Effekten försvinner helt när tar/nico kontrolleras, vilket också är förenligt med kollinearitet/överlapp i förklarad variation.
+
+**p-värden:**
+Endast **tar** är signifikant i den multipla modellen. Både **nico** och **weight** tappar signifikans (från \*\*\* respektive \* i de enkla modellerna till ns), vilket är typiskt när prediktorer är starkt samvarierade och de unika effekterna blir små/instabila.
+
+**Förklaringsgrad (R² och justerat R²):**
+
+* **Multipel modell:** R² = **0.9186**, justerat R² = **0.9070**.
+* **Jämförelse med enkla modeller:**
+
+  * CO \~ **tar**: R² = **0.9168**, justerat R² = **0.9132**.
+  * CO \~ **nico**: R² = **0.8574**, justerat R² = **0.8512**.
+  * CO \~ **weight**: R² = **0.2153**, justerat R² = **0.1811**.
+
+**Vad noterar vi?**
+
+* R² ökar endast **marginellt** när nico och weight läggs till (0.9168 → 0.9186), medan **justerat R² sjunker** (0.9132 → 0.9070) eftersom extra, onödiga variabler straffas.
+* **Residual standard error** ökar något (≈ **1.40** i CO\~tar → **1.45** i multipel), vilket inte talar för en bättre modell.
+* Sammantaget ger den multipla modellen **ingen praktisk förbättring** jämfört med den enkla modellen **CO \~ tar**. Teckenbytet för nico och bortfallet av weight-effekten är förenliga med **multikollinearitet** mellan prediktorerna.
+* **Rekommendation:** För dessa data är den **enklare modellen med endast tar** att föredra (bäst justerat R², enklast tolkning, stabila koefficienter).
 
 
 ## (c) Parvisa plottar för att förklara (b)
@@ -244,10 +262,10 @@ pairs(~ CO + tar + nico + weight, data = cig)
 
 **Tolkning 2(c):**
 
-* **CO–tar** och **CO–nico**: tydliga, starkt positiva linjära samband → båda förklarar CO bra var för sig.
-* **CO–weight**: svagt samband och stor spridning → dålig ensam prediktor.
-* **tar–nico**: mycket starkt positiv korrelation → **kollinearitet**. Det förklarar att nikotin blir icke-signifikant och kan byta tecken i den multipla modellen i (b) när tjära redan finns med.
-* **weight** mot tar/nico: inga starka samband → liten extra information att tillföra modellen.
+**tar–nico** ligger nästan helt på en linje ⇒ mycket stark **kollinearitet**. **CO** korrelerar starkt med både **tar** och **nico**, båda förklarar CO bra var för sig. Medan **weight** bara har ett svagt samband med CO men ett svagt–måttligt positivt med tar/nico.
+
+Följden blir att **nico** och **weight** nästan inte tillför någon **unik** förklaringskraft när **tar** finns i modellen. Nicos positiva enkla effekt ”äts upp” av den starka samvariationen med tar och till och med byter tecken (suppressoreffekt). Vikteffekten verkar främst gå via högre tar/nico i tyngre cigaretter; när dessa hålls konstanta försvinner viktsambandet. Därför ökar R² knappt, justerat R² sjunker och endast **tar** kvarstår som signifikant — tar fångar i praktiken nästan all relevant variation i CO.
+
 
 ## (d) Residualdiagnostik för den multipla regressionen
 
@@ -307,8 +325,12 @@ c(R2_full = summary(m_all)$r.squared,
   * Endast **tjära** är fortsatt **signifikant** (β≈0.89, p≈2e-4).
   * **Nikotin** blir positiv men **icke-signifikant**; **vikt** fortsatt icke-signifikant.
   * Modellens passform **förbättras**: $R^2$ från 0.919 → **0.935**, justerat $R^2$ från 0.907 → **0.925**, och residual-SE minskar (≈1.45 → **1.16**).
+  
+Om observationen tas bort bör man presentera en kort känslighetsanalys: visa båda modellerna sida vid sida (med/utan observationen) i en tabell med β-koefficienter, standardfel, p-värden, R²/justerat R² och en kort kommentar som motiverar exkluderingen.
+
 
 Slutsatsen: CO förklaras främst av **tjära**; outlieren påverkade koefficienterna (framför allt tecknet för nikotin) och försämrade passformen.
+
 
 ## (f) Modellval för prediktion (justerat $R^2$ och LOOCV-RMSEP)
 
