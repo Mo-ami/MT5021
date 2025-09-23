@@ -4,4 +4,7 @@ author: "M"
 date: "2025-09-23"
 output: html_document
 ---
-Hej, provar en uppdatering.
+```{r}
+baltic_data<- read.csv("A8_baltic_DIN")
+```
+
