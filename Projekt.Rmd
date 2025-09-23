@@ -6,5 +6,7 @@ output: html_document
 ---
 ```{r}
 baltic_data<- read.csv("A8_baltic_DIN")
+View(baltic_data)
 ```
+Test av min branch Daniel.
 
