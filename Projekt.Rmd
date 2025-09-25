@@ -5,8 +5,192 @@ date: "2025-09-23"
 output: html_document
 ---
 ```{r}
-baltic_data<- read.csv("A8_baltic_DIN")
-View(baltic_data)
+baltic_data <- read.csv("A8_baltic_DIN.csv")
+# Ändrar datatyp för variabeln land från char till factor så att R sedan automatiskt dummykodar den vid körning av lm(). Detta behövs eftersom det är en nominal kategorisk variabel.
+baltic_data$x20 <- as.factor(baltic_data$x20)
+# Sätt Sverige som referens.
+baltic_data$x20 <- relevel(baltic_data$x20, ref = "SWEDEN")
+library("car")
 ```
-Test av min branch Daniel.
 
+Testar full regressionsmodell:
+```{r}
+full_model <- lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + x11 + 
+                     x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 +x20, 
+                     data = baltic_data)
+
+full_model_step <- step(full_model, direction = "both")
+summary(full_model_step)
+```
+Visar perfekt kollinearitet mellan x3 och x4, rimligt eftersom de är andelar av samma sak.
+
+Tar bort x4.
+```{r}
+full_model_exkl_x4 <- lm(y ~ x1 + x2 + x3 + x5 + x6 + x7 + x8 + x9 + x10 + x11 + 
+                     x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 +x20, 
+                     data = baltic_data)
+
+vif(full_model_exkl_x4)
+
+summary(full_model_exkl_x4)
+```
+Visar misstänkt kollinearitet mellan x6-x15, fick samma skattningar i summary.
+
+Lägger ihop x6-x15 till en variabel och döper den till total area.
+```{r}
+baltic_data$total_area <- rowSums(baltic_data[, c("x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13", "x14", "x15")], na.rm = TRUE)
+
+model_total_area <- lm(y ~ x1 + x2 + x3 + x5 + total_area + x16 + x17 + x18 + x19 + x20, data = baltic_data)
+summary(model_total_area)
+```
+Summary visar NA för total_area -> tecken på perfekt kolinearitet. Misstänker med x1, var osäker vad de menade exakt med "område" i uppgiften och det skulle ju förklara en del om det är just x1. Tolkade först avrinningsområde som ytarean (bredd*djup) som rinner ut i östersjön men avrinningsområdet betyder snarare området runt vattendraget som tar upp allt vatten som sedan rinner till vattendraget.
+
+Kollar korrelation mellan x1 och total area.
+```{r}
+cor(baltic_data$x1, baltic_data$total_area, use = "complete.obs")
+```
+Korrelation 1, alltså x1 = x6 + x7 + x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15, ses även från kolumnen total_area som skapats.
+
+```{r}
+vif_model <- lm(y ~ x6 + x7 + x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15, data = baltic_data)
+vif(vif_model)
+```
+Höga vif-värden, stark kolinearitet på x6-x15.
+
+```{r}
+model_med_x14 <- lm(y ~ x2 + x3 + x5 + x6 + x7 + x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20, data = baltic_data)
+summary(model_med_x14)
+vif(model_med_x14)
+```
+Höga vif-värden, stark kolinearitet.
+
+Provar ta bort x14.
+```{r}
+model_utan_x14 <- lm(y ~ x2 + x3 + x5 + x6 + x7 + x8 + x9 + x10 + x11 + x12 + x13 + x15 + x16 + x17 + x18 + x19 + x20, data = baltic_data)
+summary(model_utan_x14)
+vif(model_utan_x14)
+```
+Höga vif-värden, stark kolinearitet dock lite lägre.
+
+Kör step nu på den förenklade modellen efter att själv resonerat och testat mig fram. Slutmodellen här innan step() blev alltså att jag tog bort x1 pga beroende med x6-x15, x4 pga beroende med x3, x14 pga höga vif-värden för modellen y ~ x6 + x7 + x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 och att x14 hade 102 av 105 observationer = 0. Alltså låg total påverkan och relevans då vi ska kolla på hela östersjön och jämföra med Sverige samt prediktera.
+Stoppar här med det manuella eftersom det blir för mycket olika kombinationer att testa, kör istället step i båda riktningar nedan.
+```{r}
+model_start <- lm(y ~ x2 + x3 + x5 + x6 + x7 + x8 + x9 + x10 + x11 + x12 + x13 + x15 + x16 + x17 + x18 + x19 + x20, data = baltic_data)
+model_step <- step(model_start, direction = "both")
+summary(model_step)
+vif(model_step)
+```
+Modellen fick samma adjusted R^2 som den fulla modellen efter step(), alltså 0.9705, förklarar alltså skillnaden i responsvariabeln lika bra. AIC värdet blev 1592.47 jämfört med 1596.98 för fulla modellen. Fortsätter därför analysen med den förenklade modellen (model_step).
+
+Vi har fortfarande höga värden på VIF för x2 = 10.76 och x18 = 9.71 samt x7,x8,x9 och x17 som ligger strax under 5. Undersöker därför mer med en korrelationsmatris för variablerna som är skogsrelaterade.
+```{r}
+cor(baltic_data[, c("x7", "x8", "x9")], use = "complete.obs")
+```
+Vi får en stark korrelation mellan x7 och x8, ca 0.936 och provar därför att slå ihop dessa till en variabel och skapar en uppdaterad modell.
+```{r}
+baltic_data$x7_x8 <- baltic_data$x7 + baltic_data$x8
+model_step_x7_x8 <- lm(y ~ x2 + x6 + x7_x8 + x9 + x15 + x16 + x17 + x18 + x19 + x20, data = baltic_data)
+summary(model_step_x7_x8)
+vif(model_step_x7_x8)
+```
+x7 var 4.8 och x8 var 4.5, nu är x7_x8 nere på 2.7 samt att x2 gick från ca 10.76 till ca 9.6 och x18 från 9.71 till 9.45 men fortfarande höga. Testar ny korrelationsmatris för att tolka mot x2 och x18.
+
+```{r}
+cor(baltic_data[, c("x2", "x6", "x7_x8", "x9", "x15", "x16", "x17", "x18", "x19")], use = "complete.obs")
+```
+Får hög korrelation (över 0.93) inom x2,x15,x17 och x18 så provar därför att skapa modeller där en av dessa är borttagen åt gången för att sedan jämföra AIC, R^2 och VIF.
+```{r}
+model_no_x2 <- update(model_step_x7_x8, .~.- x2)
+model_no_x15 <- update(model_step_x7_x8, .~.- x15)
+model_no_x17 <- update(model_step_x7_x8, .~.- x17)
+model_no_x18 <- update(model_step_x7_x8, .~.- x18)
+
+AIC(model_step_x7_x8, model_no_x2, model_no_x15, model_no_x17, model_no_x18)
+summary(model_no_x2)$adj.r.squared
+summary(model_no_x15)$adj.r.squared
+summary(model_no_x17)$adj.r.squared
+summary(model_no_x18)$adj.r.squared
+summary(model_step_x7_x8)$adj.r.squared
+
+vif(model_no_x2)
+vif(model_no_x15)
+vif(model_no_x17)
+vif(model_no_x18)
+vif(model_step_x7_x8)
+```
+
+Tydligt att x2 eller x15 bör vara den som tas bort om någon, testar modell utan bägge.
+```{r}
+model_no_x2_x15 <- update(model_no_x2, .~.- x15)
+summary(model_no_x2_x15)$adj.r.squared
+vif(model_no_x2_x15)
+AIC(model_no_x2_x15)
+```
+```{r}
+summary(model_step_x7_x8)
+summary(model_no_x2)
+summary(model_no_x15)
+summary(model_no_x2_x15)
+```
+För stor negativ ändring av AIC och R^2, fortsätter med modellen som innehåller samtliga x2,x15,x17,x18 trots lite högre VIF-värden.
+
+Påbörjar residualdiagnostik för fortsatt analys av modellen.
+```{r}
+par(mfrow = c(2, 2))
+plot(model_step_x7_x8)
+
+```
+Potentiell heteroskedasticitet och icke linjär, ser normalfördelad ut, 6 observationer över Cook´s värde 1, bör alltså undersökas.
+
+Kollar heteroskedasticitet.
+```{r}
+library(lmtest)
+bptest(model_step_x7_x8)
+```
+Visar på signifikant heteroskedasticitet. 
+
+Testar log-transformera responsvariabeln pga misstänkt linearitet enligt Residuals vs Fitted plot samt heteroskedasticitet från bp-test och Scale-Location plot.
+```{r}
+baltic_data$log_y <- log(baltic_data$y + 1)  # Lägg till 1 för att undvika log(0)
+model_log <- lm(log_y ~ x2 + x6 + x7_x8 + x9 + x15 + x16 + x17 + x18 + x19 + x20, data = baltic_data)
+summary(model_log)
+vif(model_log)
+
+par(mfrow = c(2, 2))
+plot(model_log)
+```
+
+```{r}
+bptest(model_log)
+```
+Efter log-transformationen av y, ej längre statistisk signifikans för heteroskedasticitet. bp-test gär p-värde 0.41
+
+Högt p-värde på x17 och hög korrelation med x18 (ca 0.956), slår därför ihop dem till en variabel för att minska multikolineariteten men ändå behålla information om bägge i modellen.
+```{r}
+baltic_data$total_livestock <- baltic_data$x17 + baltic_data$x18
+model_log_livestock <- lm(log_y ~ x2 + x6 + x7_x8 + x9 + x15 + x16 + total_livestock + x19 + x20, data = baltic_data)
+summary(model_log_livestock)
+vif(model_log_livestock)
+
+par(mfrow = c(2, 2))
+plot(model_log_livestock)
+```
+Undersöker nu observationerna utanför Cook´s linjer i plotten Residuals vs Leverage.
+```{r}
+which(cooks.distance(model_log_livestock) > 4/length(fitted(model_log_livestock)))
+```
+Provar modellen utan de extrema/inflytande observationerna.
+```{r}
+data_reduced <- baltic_data[-c(10, 22, 75, 79, 87, 105), ]
+
+# Skapa ny modell
+model_log_livestock_reduced <- lm(log(y) ~ x2 + x6 + x7_x8 + x9 + x15 + x16 +
+                                   total_livestock + x19 + x20, data = data_reduced)
+
+# Jämför ny modell
+summary(model_log_livestock_reduced)
+vif(model_log_livestock_reduced)
+par(mfrow = c(2, 2))
+plot(model_log_livestock_reduced)
+```
+Fick stor effekt på signifikans hos flera koefficienter och eftersom de extrema observationerna kommer från större områden med högre befolkning osv... så får deras "extrema" effekt anses rimliga och behålls därför i modellen.
