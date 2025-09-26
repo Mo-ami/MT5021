@@ -104,7 +104,7 @@ do.call(gridExtra::grid.arrange, c(plots, ncol=3))
 # 3. Grundläggande enkla regressioner
 
 ```{r}
-# Tabell över enkla regressioner (hanterar borttagna/konstanta prediktorer)
+# Tabell över enkla regressioner 
 simp_vars <- c("pop_dens","pigs_d","cattle_d","p_agri","p_urban","p_water","p_wet","runoff","ww_conn")
 simp_fits <- lapply(simp_vars, function(v) lm(reformulate(v, "logDIN"), data = b2))
 
