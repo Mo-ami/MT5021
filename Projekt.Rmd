@@ -103,8 +103,6 @@ do.call(gridExtra::grid.arrange, c(plots, ncol=3))
 
 # 3. Grundläggande enkla regressioner
 
-För varje kandidatprediktor $x$ anpassas $\log(DIN) = \beta_0 + \beta_1 x + \varepsilon$.
-
 ```{r}
 # Tabell över enkla regressioner (hanterar borttagna/konstanta prediktorer)
 simp_vars <- c("pop_dens","pigs_d","cattle_d","p_agri","p_urban","p_water","p_wet","runoff","ww_conn")

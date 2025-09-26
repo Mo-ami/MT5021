@@ -11,7 +11,7 @@
 
 
 
-<title>Project</title>
+<title>Projekt</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -348,7 +348,7 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Project</h1>
+<h1 class="title toc-ignore">Projekt</h1>
 <h3 class="subtitle">MT5021</h3>
 
 </div>
@@ -556,9 +556,6 @@ plots &lt;- lapply(vars, function(v) {
 <div id="grundläggande-enkla-regressioner" class="section level1" number="3">
 <h1><span class="header-section-number">3</span> 3. Grundläggande enkla
 regressioner</h1>
-<p>För varje kandidatprediktor <span class="math inline">\(x\)</span>
-anpassas <span class="math inline">\(\log(DIN) = \beta_0 + \beta_1 x +
-\varepsilon\)</span>.</p>
 <pre class="r"><code># Tabell över enkla regressioner (hanterar borttagna/konstanta prediktorer)
 simp_vars &lt;- c(&quot;pop_dens&quot;,&quot;pigs_d&quot;,&quot;cattle_d&quot;,&quot;p_agri&quot;,&quot;p_urban&quot;,&quot;p_water&quot;,&quot;p_wet&quot;,&quot;runoff&quot;,&quot;ww_conn&quot;)
 simp_fits &lt;- lapply(simp_vars, function(v) lm(reformulate(v, &quot;logDIN&quot;), data = b2))
