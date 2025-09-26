@@ -1,10 +1,144 @@
+
 ---
 title: "Projekt"
-author: "M"
-date: "2025-09-23"
-output: html_document
+subtitle: "MT5021"
+output:
+  html_document:
+    number_sections: true
+fontsize: 11pt
 ---
-```{r}
-baltic_data<- read.csv("A8_baltic_DIN")
+
+
+# 1. Data, kontroller och variabelkonstruktion
+
+## 1(a) Läs in och inspektera
+
+```{r setup, message=FALSE, warning=FALSE}
+set.seed(2025)
+
+# Paket 
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(gridExtra)
+
+library(MASS)
+library(car)
+
+
+# Läs in
+b <- read.csv("baltic_DIN.csv", stringsAsFactors = FALSE)
+
+str(b)
+summary(b)
 ```
 
+
+## 1(b) Grundläggande rimlighetskontroller
+
+```{r}
+# (i) Stad + landsbygd ≈ 100?
+all.equal(b$x3 + b$x4, rep(100, nrow(b)), tolerance = 1e-8)
+
+# (ii) Delar markanvändningskategorierna upp avrinningsområdet?
+land_cols <- paste0("x", 6:15)
+all.equal(rowSums(b[ , land_cols]), b$x1, tolerance = 1e-6)
+
+# (iii) Saknade värden per variabel och länder
+data.frame(n_missing = sapply(b, function(z) sum(is.na(z))))
+table(Country = b$x20)
+```
+
+
+## 1(c) Härledda variabler (tätheter och andelar)
+
+```{r}
+b2 <- b %>%
+  mutate(
+    area_km2 = x1 * 0.01,                     # 1 ha = 0,01 km^2
+    DIN      = y,
+    logDIN   = log(y),                        # responsvariabel för modellering
+    # Tätheter per km^2
+    pop_dens = x5,                            # givet i data; lika med x2/area_km2
+    pigs_d   = x17 / area_km2,
+    cattle_d = x18 / area_km2,
+    # Andelar av markanvändning (en referenskategori måste utelämnas i modeller)
+    p_decid  = x6/x1,
+    p_conif  = x7/x1,
+    p_mixf   = x8/x1,
+    p_shrub  = x9/x1,
+    p_wet    = x10/x1,
+    p_agri   = x11/x1,
+    p_bare   = x12/x1,
+    p_water  = x13/x1,
+    p_snow   = x14/x1,
+    p_urban  = x15/x1,
+    # Övrigt
+    runoff   = x16,                           # mm/år
+    ww_conn  = x19/100,                       # andel i [0,1]
+    Country  = factor(ifelse(x20=="MISSING","Unknown", x20))
+  )
+
+summary(b2$logDIN)
+```
+
+# 2. Explorativ analys
+
+## 2(a) Distributioner och enkla samband
+
+```{r}
+# Histogram
+p1 <- ggplot(b2, aes(DIN))    + geom_histogram(bins=30) + ggtitle("DIN (kg)")
+p2 <- ggplot(b2, aes(logDIN)) + geom_histogram(bins=30) + ggtitle("log(DIN)")
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+
+# Utvalda spridningsdiagram mot logDIN
+vars <- c("pop_dens","pigs_d","cattle_d","p_agri","p_urban","p_water","p_wet","runoff","ww_conn")
+plots <- lapply(vars, function(v) {
+  ggplot(b2, aes_string(v, "logDIN")) + geom_point() + geom_smooth(method="lm", se=FALSE) +
+    labs(title = paste("logDIN ~", v))
+})
+do.call(gridExtra::grid.arrange, c(plots, ncol=3))
+```
+
+# 3. Grundläggande enkla regressioner
+
+För varje kandidatprediktor $x$ anpassas $\log(DIN) = \beta_0 + \beta_1 x + \varepsilon$.
+
+```{r}
+# Tabell över enkla regressioner (hanterar borttagna/konstanta prediktorer)
+simp_vars <- c("pop_dens","pigs_d","cattle_d","p_agri","p_urban","p_water","p_wet","runoff","ww_conn")
+simp_fits <- lapply(simp_vars, function(v) lm(reformulate(v, "logDIN"), data = b2))
+
+simp_tab <- dplyr::bind_rows(lapply(seq_along(simp_fits), function(i){
+  fit <- simp_fits[[i]]
+  tdy <- broom::tidy(fit)
+  g   <- broom::glance(fit)
+  row <- tdy[tdy$term == simp_vars[i], , drop = FALSE]
+
+  data.frame(
+    model = paste0("logDIN ~ ", simp_vars[i]),
+    beta1 = if (nrow(row)) row$estimate else NA_real_,
+    pval  = if (nrow(row)) row$p.value  else NA_real_,
+    R2    = g$r.squared,
+    AdjR2 = g$adj.r.squared,
+    RMSE  = g$sigma,
+    row.names = NULL
+  )
+}))
+
+simp_tab[order(-simp_tab$AdjR2), ]
+
+```
+
+# 4. Multipel linjär regression: kandidatuppsättning och kollinearitet
+
+## 4(a) Full kandidatmodell (inga interaktioner, utvald delmängd av markanvändning)
+
+```{r}
+full0 <- lm(logDIN ~ pop_dens + pigs_d + cattle_d + runoff + ww_conn +
+              p_agri + p_wet + p_water + p_urban,
+            data = b2)
+summary(full0)
+car::vif(full0)
+```
