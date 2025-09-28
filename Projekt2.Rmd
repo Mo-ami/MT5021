@@ -1,0 +1,145 @@
+
+---
+title: "MT5021 – Project A8: Nitrogen Input to the Baltic Sea"
+output:
+  html_document:
+    toc: false
+    toc_float: false
+    number_sections: true
+fontsize: 11pt
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+set.seed(2025)
+```
+
+# Data 
+
+# 1. Load and inspect
+
+```{r load}
+library(readr); library(dplyr); library(ggplot2); library(tidyr)
+dat <- read_csv("baltic_DIN.csv",
+                col_types = cols(.default = col_double(),
+                                 x20 = col_character()))
+glimpse(dat)
+```
+
+```{r basic-checks}
+# Names & quick summaries
+names(dat)
+summary(dat$y)
+
+# Country levels 
+sort(table(dat$x20), decreasing = TRUE)
+```
+
+# 2. Determinstiska relationer
+
+## 2.1 Ta bort exakta linjära relationer
+
+## 2.3 Nya variabler
+
+```{r engineer}
+area_cols <- paste0("x", 6:15)
+dat <- dat %>%
+  mutate(country = factor(x20),
+         log_y = log(y),
+         log_x1 = log(x1 + 1),
+         log_x2 = log(x2 + 1),
+         log_x17 = log(x17 + 1),
+         log_x18 = log(x18 + 1))
+
+# Land-cover proportions
+dat <- dat %>%
+  mutate(across(all_of(area_cols), ~ .x / x1, .names = "{.col}_prop"))
+
+# Verify proportions sum to ~1
+dat <- dat %>%
+  rowwise() %>%
+  mutate(prop_sum = sum(c_across(ends_with("_prop")))) %>%
+  ungroup()
+
+summary(dat$prop_sum)  
+```
+
+```{r drop-redundant}
+dat <- dat %>%
+  select(-x4, -x5, -prop_sum)
+```
+
+# 3. explorativ analysis
+
+```{r eda-plots, fig.height=4.2}
+p1 <- ggplot(dat, aes(x = y)) + geom_histogram(bins = 30) + scale_x_log10() +
+  labs(title = "DIN (kg), log10 scale on x", x = "DIN (kg, log10 scale)", y = "Count")
+
+p2 <- ggplot(dat, aes(x = log_x2, y = log_y)) +
+  geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "log(DIN) vs log(Population)", x = "log(x2 + 1)", y = "log(DIN)")
+
+p3 <- ggplot(dat, aes(x = x16, y = log_y)) +
+  geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "log(DIN) vs Runoff (mm/year)", x = "Runoff (x16)", y = "log(DIN)")
+
+p4 <- ggplot(dat, aes(x = x11_prop, y = log_y)) +
+  geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "log(DIN) vs Agricultural fraction", x = "Agricultural land proportion", y = "log(DIN)")
+
+p1; p2; p3; p4
+```
+
+# 4. kandidat model 
+
+```{r baseline-fit}
+library(broom); library(car); library(MASS)
+
+full_formula <- log_y ~ log_x1 + log_x2 + x3 +
+  x6_prop + x7_prop + x8_prop + x9_prop + x10_prop + x11_prop + x13_prop + x14_prop + x15_prop +
+  x16 + log_x17 + log_x18 + x19
+
+m_full <- lm(full_formula, data = dat)
+summary(m_full)
+
+# Multicollinearity check
+car::vif(m_full)
+```
+
+```{r baseline-dx, fig.height=4.5}
+par(mfrow=c(2,2))
+plot(m_full)
+par(mfrow=c(1,1))
+```
+
+# 5. Model val (AIC) 
+
+```{r step-aic}
+m_step <- stepAIC(m_full, direction = "both", trace = FALSE)
+summary(m_step)
+car::vif(m_step)
+```
+
+# utan log test
+
+```{r}
+# No-log version of the baseline model 
+full_formula_nolog <- y ~ x1 + x2 + x3 +
+  x6_prop + x7_prop + x8_prop + x9_prop + x10_prop + x11_prop + x13_prop + x14_prop + x15_prop +
+  x16 + x17 + x18 + x19
+
+m_full_nolog <- lm(full_formula_nolog, data = dat)
+summary(m_full_nolog)
+
+# Multicollinearity check
+car::vif(m_full_nolog)
+```
+
+```{r}
+m_step <- stepAIC(m_full_nolog, direction = "both", trace = FALSE)
+summary(m_step)
+```
+
+
+
