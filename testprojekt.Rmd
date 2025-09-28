@@ -2,7 +2,9 @@
 title: "testprojekt"
 author: "Daniel Svedlund"
 date: "2025-09-26"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r}
