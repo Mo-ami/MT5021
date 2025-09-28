@@ -25,6 +25,9 @@ library(gridExtra)
 library(MASS)
 library(car)
 
+library(readr)
+library(tidyr)
+
 
 # Läs in
 b <- read.csv("baltic_DIN.csv", stringsAsFactors = FALSE)
@@ -139,4 +142,22 @@ full0 <- lm(logDIN ~ pop_dens + pigs_d + cattle_d + runoff + ww_conn +
             data = b2)
 summary(full0)
 car::vif(full0)
+```
+
+
+```{r}
+full1 <- lm(DIN ~ pop_dens + pigs_d + cattle_d + runoff + ww_conn +
+              p_agri + p_wet + p_water + p_urban,
+            data = b2)
+summary(full0)
+
+```
+
+
+## 4(b) Stegvis AIC (båda riktningar) utifrån `full0`
+
+```{r}
+full_step <- MASS::stepAIC(full0, direction = "both", trace = FALSE)
+summary(full_step)
+car::vif(full_step)
 ```
