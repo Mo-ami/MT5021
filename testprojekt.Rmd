@@ -1,0 +1,156 @@
+---
+title: "testprojekt"
+author: "Daniel Svedlund"
+date: "2025-09-26"
+output: html_document
+---
+
+```{r}
+library("car")
+library("lmtest")
+baltic_data <- read.csv("A8_baltic_DIN.csv")
+# Ändrar datatyp för variabeln land från char till factor så att R sedan automatiskt dummykodar den vid körning av lm(). Detta behövs eftersom det är en nominal kategorisk variabel.
+baltic_data$x20 <- as.factor(baltic_data$x20)
+# Sätt Sverige som referens.
+baltic_data$x20 <- relevel(baltic_data$x20, ref = "SWEDEN")
+```
+
+Testar full regressionsmodell:
+```{r}
+full_model <- lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + x11 + 
+                     x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 +x20, 
+                     data = baltic_data)
+
+model_1 <- step(full_model, direction = "both")
+summary(model_1)
+```
+Step tar bort x3, x4 och x5 som alla beskriver befolkning, x3, x4 andelar av samma, därav perfekt kolinearitet. Skattningsvärden på parametrar x1, x6-x15 är exakt samma vilket är högst orimligt -> tecken på stark kolinearitet då modellen har svårt att särskilja deras effekter. 
+Lägger till x6-x15 i en ny variabel total_area som visar sig få samma värden som x1. Alltså har vi perfekt kolinearitet då x1 = x6+x7+x8+x9+x10+x11+x12+x13+x14+x15.
+
+Provar göra om de till andelar för bättre tolkning och tar bort x14 (bara 3 observationer) för att simplifiera modellen och pga dess låga relevans för helhetsbilden.
+```{r}
+baltic_data$andel_lövskog <- baltic_data$x6 / baltic_data$x1
+baltic_data$andel_barrskog <- baltic_data$x7 / baltic_data$x1
+baltic_data$andel_blandskog <- baltic_data$x8 / baltic_data$x1
+baltic_data$andel_buskveg <- baltic_data$x9 / baltic_data$x1
+baltic_data$andel_våtmark <- baltic_data$x10 / baltic_data$x1
+baltic_data$andel_jordbruk <- baltic_data$x11 / baltic_data$x1
+baltic_data$andel_kala_ytor <- baltic_data$x12 / baltic_data$x1
+baltic_data$andel_vatten <- baltic_data$x13 / baltic_data$x1
+baltic_data$andel_artif_ytor <- baltic_data$x15 / baltic_data$x1
+
+model_2 <- lm(y ~ x1 + x2 + andel_lövskog + andel_barrskog + andel_blandskog + andel_buskveg + andel_våtmark + andel_jordbruk + andel_kala_ytor + andel_vatten + andel_artif_ytor + x16 + x17 + x18 + x19 + x20, data = baltic_data)
+
+summary(model_2)
+vif(model_2)
+AIC(model_2)
+```
+```{r}
+model_3 <- update(model_2, .~. - andel_barrskog)
+summary(model_3)
+vif(model_3)
+bptest(model_3)
+AIC(model_3)
+```
+Klart lägre VIF, innan borttag av andel_barrskog hade ingen andel VIF under 31 och 2 st över 500, nu är samtliga under 2.3. Minskad residual error 1987 -> 1976, liten ökning R^2 0.9648 -> 0.9652. Minskade standard errors på koefficienterna dock fortsatt höga p-värden på många.
+
+Kollar korrelation mellan x2 och x18 pga deras VIF-värden kring 10.
+```{r}
+cor(baltic_data$x2, baltic_data$x18, use = "complete.obs")
+```
+Väldigt stark korrelation (0.976). Misstänker högre relevans för DIN av antal nötkreatur än befolkning i området, pga gödsel osv... (är ju inte mitt expertisområde direkt)
+
+Provar därför ta bort x2 (befolkningen i området).
+```{r}
+model_4 <- update(model_3, .~. - x2)
+summary(model_4)
+vif(model_4)
+AIC(model_4)
+```
+Provar istället ta bort x18.
+```{r}
+model_5 <- update(model_3, .~. - x18)
+summary(model_5)
+vif(model_5)
+AIC(model_5)
+```
+Påbörjar residualdiagnostik för fortsatt analys av modellen.
+```{r}
+par(mfrow = c(2, 2))
+plot(model_3) # modell med både x2 och x18
+```
+Residuals vs fitted visar misstänkt linearitet och Scale-Location visar misstänkt heteroskedasticitet. Provar därför logaritmera y.
+
+```{r}
+model_log <- lm(log(y) ~ x1 + x2 + andel_lövskog + andel_blandskog +  andel_buskveg + andel_våtmark + andel_jordbruk + andel_kala_ytor +  andel_vatten + andel_artif_ytor + x16 + x17 + x18 + x19 + x20, data = baltic_data)
+summary(model_log)
+vif(model_log)
+bptest(model_log)
+resettest(model_log)
+AIC(model_log)
+```
+Kollar korrelationer mellan förklarande variabler.
+```{r}
+cor(baltic_data[, c("x1", "x2", "andel_lövskog", "andel_blandskog", "andel_buskveg", "andel_våtmark", "andel_jordbruk", "andel_kala_ytor", "andel_vatten", "andel_artif_ytor", "x16", "x17", "x18", "x19")], use = "complete.obs")
+```
+Provar ta bort x18.
+```{r}
+model_log_reduced_x18 <- lm(log(y) ~ x1 + x2 + andel_lövskog + andel_blandskog +  andel_buskveg + andel_våtmark + andel_jordbruk + andel_kala_ytor +  andel_vatten + andel_artif_ytor + x16 + x17 + x19 + x20, data = baltic_data)
+summary(model_log_reduced_x18)
+vif(model_log_reduced_x18)
+bptest(model_log_reduced_x18)
+resettest(model_log_reduced_x18)
+AIC(model_log_reduced_x18)
+```
+
+Provar ta bort x2.
+```{r}
+model_log_reduced_x2 <- lm(log(y) ~ x1 + andel_lövskog + andel_blandskog +  andel_buskveg + andel_våtmark + andel_jordbruk + andel_kala_ytor +  andel_vatten + andel_artif_ytor + x16 + x17 + x18 + x19 + x20, data = baltic_data)
+summary(model_log_reduced_x2)
+vif(model_log_reduced_x2)
+bptest(model_log_reduced_x2)
+resettest(model_log_reduced_x2)
+AIC(model_log_reduced_x2)
+```
+
+Liknande värden vid borttag av antingen x2 eller x18. Lite försämringar på AIC, R^2 men bättre VIF-värden, ingen över 10 längre. Fortfarande vif-värden över minst 7 på den ej borttagna. Väljer att ta bort x2 då jag anser att det är mer relevant att ha kvar x18 som speglar gödselanvändningen (innehåller mycket kväve) och lägger ihop x17 + x18 till total_livestock för att minska kolinearitet.
+
+Tar bort x20:LITHUANIA pga endast 1 observation, orsakar singularitet i mätvärden och har ändå liten relevans för modellen och. Lägger även ihop
+```{r}
+baltic_data_no_LITHUANIA <- subset(baltic_data, x20 != "LITHUANIA")
+baltic_data_no_LITHUANIA$total_livestock <- baltic_data_no_LITHUANIA$x17 + baltic_data_no_LITHUANIA$x18
+model_log_livestock <- lm(log(y) ~ x1 + andel_lövskog + andel_blandskog +  andel_buskveg + andel_våtmark + andel_jordbruk + andel_kala_ytor +  andel_vatten + andel_artif_ytor + x16 + total_livestock + x19 + x20, data = baltic_data_no_LITHUANIA)
+summary(model_log_livestock)
+vif(model_log_livestock)
+bptest(model_log_livestock)
+resettest(model_log_livestock)
+AIC(model_log_livestock)
+```
+Mycket bättre VIF-värden samt en sänkning av AIC till den lägsta hittills. R^2 ganska oförändrat.
+
+Provar lägga till interaktion mellan x16 och x20.
+```{r}
+model_log_livestock_rm_Lithuania_int_x16_x20 <- lm(log(y) ~ x1 + andel_lövskog + andel_blandskog +  andel_buskveg + andel_våtmark + andel_jordbruk + andel_kala_ytor +  andel_vatten + andel_artif_ytor + x16 * x20 + total_livestock + x19, data = baltic_data_no_LITHUANIA)
+
+summary(model_log_livestock_rm_Lithuania_int_x16_x20)
+vif(model_log_livestock_rm_Lithuania_int_x16_x20)
+bptest(model_log_livestock_rm_Lithuania_int_x16_x20)
+resettest(model_log_livestock_rm_Lithuania_int_x16_x20)
+AIC(model_log_livestock_rm_Lithuania_int_x16_x20)
+```
+
+Provar istället att lägga till interaktion mellan x19 och x20.
+```{r}
+model_log_livestock_rm_Lithuania_int_x19_x20 <- lm(log(y) ~ x1 + andel_lövskog + andel_blandskog +  andel_buskveg + andel_våtmark + andel_jordbruk + andel_kala_ytor +  andel_vatten + andel_artif_ytor + x16 + total_livestock + x19 * x20, data = baltic_data_no_LITHUANIA)
+
+summary(model_log_livestock_rm_Lithuania_int_x19_x20)
+vif(model_log_livestock_rm_Lithuania_int_x19_x20, type ="predictor")
+bptest(model_log_livestock_rm_Lithuania_int_x19_x20)
+resettest(model_log_livestock_rm_Lithuania_int_x19_x20)
+AIC(model_log_livestock_rm_Lithuania_int_x19_x20)
+```
+Får lägre AIC 268 gentemot 278 med interaktionen mellan x16 och x20 och liten förbättring av R^2.
+```{r}
+par(mfrow = c(2, 2))
+plot(model_log_livestock_rm_Lithuania_int_x19_x20)
+```
