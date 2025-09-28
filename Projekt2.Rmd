@@ -1,6 +1,6 @@
 
 ---
-title: "MT5021 – Project A8: Nitrogen Input to the Baltic Sea"
+title: "MT5021 – Project "
 output:
   html_document:
     toc: false
