@@ -116,15 +116,16 @@ par(mfrow=c(1,1))
 # 5. Model val (AIC) 
 
 ```{r step-aic}
-m_step <- stepAIC(m_full, direction = "both", trace = FALSE)
-summary(m_step)
-car::vif(m_step)
+m_step_log <- stepAIC(m_full, direction = "both", trace = FALSE)
+summary(m_step_log)
+car::vif(m_step_log)
 ```
+
 
 # utan log test
 
 ```{r}
-# No-log version of the baseline model 
+# No-log version of the baseline model (same predictors, untransformed)
 full_formula_nolog <- y ~ x1 + x2 + x3 +
   x6_prop + x7_prop + x8_prop + x9_prop + x10_prop + x11_prop + x13_prop + x14_prop + x15_prop +
   x16 + x17 + x18 + x19
@@ -137,9 +138,43 @@ car::vif(m_full_nolog)
 ```
 
 ```{r}
-m_step <- stepAIC(m_full_nolog, direction = "both", trace = FALSE)
-summary(m_step)
+m_step_nolog <- stepAIC(m_full_nolog, direction = "both", trace = FALSE)
+summary(m_step_nolog)
 ```
 
 
+```{r}
+# LOOCV med smearing
+loo_metrics <- function(mod, backtransform = identity, smearing = NULL) {
+  mm <- model.frame(mod); y_resp <- model.response(mm)
+  e <- resid(mod); h <- hatvalues(mod)
+  yhat_loo_resp <- y_resp - e/(1 - h)          # LOO preds on model's response scale
+  y_true <- backtransform(y_resp)              # observed y on original scale
+  yhat_loo <- backtransform(yhat_loo_resp)
+  if (!is.null(smearing)) yhat_loo <- yhat_loo * smearing
+  c(RMSE = sqrt(mean((y_true - yhat_loo)^2, na.rm = TRUE)),
+    MAE  = mean(abs(y_true - yhat_loo), na.rm = TRUE))
+}
+
+# Metrics for FULL models
+log_full_metrics   <- loo_metrics(m_full, backtransform = exp,
+                                  smearing = mean(exp(resid(m_full)), na.rm = TRUE))
+nolog_full_metrics <- loo_metrics(m_full_nolog, backtransform = identity)
+
+# Metrics for stepAIC models 
+log_step_metrics   <- loo_metrics(m_step_log, backtransform = exp,
+                                  smearing = mean(exp(resid(m_step_log)), na.rm = TRUE))
+nolog_step_metrics <- loo_metrics(m_step_nolog, backtransform = identity)
+
+tab <- tibble::tibble(
+  Model     = c("Full (log, smeared)", "Full (no-log)",
+                "StepAIC (log, smeared)", "StepAIC (no-log)"),
+  LOO_RMSEP = c(log_full_metrics["RMSE"], nolog_full_metrics["RMSE"],
+                log_step_metrics["RMSE"], nolog_step_metrics["RMSE"]),
+  LOO_MAE   = c(log_full_metrics["MAE"],  nolog_full_metrics["MAE"],
+                log_step_metrics["MAE"],  nolog_step_metrics["MAE"])
+)
+knitr::kable(tab, digits = 3)
+
+```
 
