@@ -1,0 +1,381 @@
+---
+title: "Projekt A"
+author: '1'
+date: "2025-09-30"
+output: html_document
+---
+
+Laddar in datan från csv-filen baltic_DIN till en dataframe baltic_data och undersöker datatyper.
+```{r}
+library("car")
+library("lmtest")
+baltic_data <- read.csv("baltic_DIN.csv")
+str(baltic_data)
+```
+Alla variabler numeriska utom x20 som är av typen char. 
+
+Omvlandlar därför x20 till en faktor, den dummykodas då av R vid körning av lm() 
+till 0 för motsvarande landsvariabel x20:land då en observation inte tillhör landet 
+och 1 då den tillhör landet. Sätter Sverige som referens eftersom det är relevant 
+för att besvara en av våra frågor senare.
+```{r}
+baltic_data$x20 <- as.factor(baltic_data$x20)
+baltic_data$x20 <- relevel(baltic_data$x20, ref = "SWEDEN")
+```
+
+Börjar undersöka datan lite i baltic_data.
+```{r}
+hist(baltic_data$y)
+```
+Ser att histogrammet är starkt höger-skev, alltså ett fåtal väldigt stora värden. 
+Logaritmeting av y ger en mer symmterisk fördelning genom att dämpa stora värden 
+och kan förbättra regressionsmodell.
+
+Undersöker modellen med diagnostiska plottar.
+```{r}
+par(mfrow = c(2, 2))
+plot(base_model)
+```
+Ganska klar normalfördelning av residualerna visar QQ-plotten, däremot är Residuals vs Fitted och Scale-Location lite mer svårtolkade men hintar om ev. heteroskedasticitet samt icke-linjäritet. 
+
+Provar därför att logaritmera y, vilket kan korrigera dessa.
+```{r}
+logy_model <- lm(log(y) ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + x11 + 
+                     x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 +x20, 
+                     data = baltic_data)
+```
+```{r}
+par(mfrow = c(2, 2))
+plot(logy_model)
+```
+Samtliga grafer förbättrades, liknar någorlunda slumpmoln i både Residual vs Fitted samt Scale-Location. Plottarna tyder på att modellantagandena homoskedasticitet, icke-linjäritet samt normalfördelade residualer ser ut att vara uppfyllda för modellen.
+
+Går nu vidare i analysen och undersöker om det även kan vara rimligt att transformera vissa av de förklarande variablerna för att få så rättvisande modell som möjligt innan ev variabler börjar plockas bort. Plottar parvis alla förklarande variabler mot y.
+```{r}
+res <- residuals(logy_model)
+
+par(mfrow = c(4, 5), mar = c(2, 2, 2, 2))
+for (var in paste0("x", 1:19)){
+  plot(baltic_data[[var]], res,  
+       main = paste("Residualer vs", var), 
+       xlab = var, ylab = "Residualer")
+  abline(h = 0, col = "red", lty = 2)
+}
+```
+Från plottarna så ser man att samtliga utom x3, x4, x16 och x19 är klart högerskeva 
+och då kandidater för log.
+
+Eftersom x3 och x4 är perfekt kolineära (andelar som adderar till 100) så tar jag bort x4.
+```{r}
+logy_model_no_x4 <- update(logy_model, .~. - x4)
+```
+
+Börjar log-transformera x1 och jämför med min hittills bästa modell.
+```{r}
+baltic_data$logx1 <- log(baltic_data$x1)
+logy_model_no_x4_logx1 <- update(logy_model_no_x4, .~. -x1 + logx1)
+```
+```{r}
+summary(logy_model_no_x4)
+summary(logy_model_no_x4_logx1)
+AIC(logy_model_no_x4)
+AIC(logy_model_no_x4_logx1)
+vif(logy_model_no_x4)
+vif(logy_model_no_x4_logx1)
+```
+Fick klart bättre värden efter att logaritmerat x1. Residual standard error gick från 0.907 till 0.747, R^2 från 0.750 till 0.830 och AIC från 301.6 till 260.8.
+
+Fortsätter med att testa log-transformera x2 och jämför mot modellen med x2.
+```{r}
+baltic_data$logx2 <- log(baltic_data$x2)
+logy_model_no_x4_logx1_x2 <- update(logy_model_no_x4_logx1, .~. - x2 + logx2)
+summary(logy_model_no_x4_logx1)
+summary(logy_model_no_x4_logx1_x2)
+AIC(logy_model_no_x4_logx1)
+AIC(logy_model_no_x4_logx1_x2)
+```
+Även tydliga förbättringar här på adj R^2 0.9155, AIC 187.5 samt RSE 0.527.
+
+Kollar histogrammen för de förklarande variablerna.
+```{r}
+vars_to_check <- c("logx1", "logx2", "x3", paste0("x", 5:19))
+par(mfrow = c(4, 5), mar = c(2, 2, 2, 2))
+for (v in vars_to_check) {
+  hist(baltic_data[[v]], main = v, xlab = v)
+}
+
+```
+Samtliga utom x3, x16 och x19 högerskev, fortsätter med logaritmering av x5-x15 samt x17 och x18, samt skapar min nya logaritmerade modell där x4 är borttagen, och endast x3, x16, x19 och x20 ej är logaritmerade.
+
+```{r}
+vars_to_log <- c(paste0("x", 5:15), "x17", "x18")
+
+for (v in vars_to_log) {
+  baltic_data[[paste0("log", v)]] <- log1p(baltic_data[[v]])
+}
+log_base_model_no_x4 <- lm(log(y) ~ logx1 + logx2 + x3 + logx5 + logx6 + logx7 + logx8 + logx9 + logx10 + logx11 +
+    logx12 + logx13 + logx14 + logx15 + x16 + logx17 + logx18 + x19 + x20, data = baltic_data)
+```
+
+Kollar histogrammen för de förklarande variablerna.
+```{r}
+vars_to_check <- c("logx1", "logx2", "x3", paste0("logx", 5:15), "x16", "logx17" 
+                   , "logx18", "x19")
+par(mfrow = c(4, 5), mar = c(2, 2, 2, 2))
+for (v in vars_to_check) {
+  hist(baltic_data[[v]], main = v, xlab = v)
+}
+
+```
+Histogrammen visar mer symmetriska fördelningar för samtliga log transformeringar utom x12 och x14 men de har väldigt få observationer skilda från
+0 i datan vi jobbar med.
+
+Jämför nu denna modell med hittills bästa:
+```{r}
+summary(log_base_model_no_x4)
+summary(logy_model_no_x4_logx1_x2)
+AIC(log_base_model_no_x4)
+AIC(logy_model_no_x4_logx1_x2)
+vif(log_base_model_no_x4)
+vif(logy_model_no_x4_logx1_x2)
+```
+Klart bättre värden på residual standard error 0.4457, R^2 0.9395 och AIC 152.4, däremot visar vif en hel del multipel kolinearitet som nu behöver jobbas vidare med.
+
+Börjar nu jobba med att sänka höga vif-värden. Kollar parvisa korrelationer
+genom att skapa en korrelationsmatris.
+```{r}
+cor(baltic_data[c("logx1", "logx2", "x3", "logx5", "logx6", "logx7", "logx8", 
+               "logx9", "logx10", "logx11", "logx12", "logx13", "logx14", 
+               "logx15", "x16", "logx17", "logx18", "x19")])
+```
+Ser från korrelationsmatrisen väldigt starka korrelationer (>0.90) för logx1-logx8, logx2-logx11, logx2-logx18 samt extremt starka (>0.95) mellan logx11-logx17, logx11-logx18, logx17-logx18.
+
+Tar bort x11 area jordbruk då det är starkt korrelerat med x2, x17 och x18, prövar dessutom att slå ihop x17 och x18.
+```{r}
+baltic_data$log_livestock <- baltic_data$logx17 + baltic_data$logx18
+log_model_livestock <- update(log_base_model_no_x4, .~. -logx11 - logx17 - logx18 + log_livestock)
+summary(log_model_livestock)
+AIC(log_model_livestock)
+vif(log_model_livestock)
+
+```
+Lite sämre värden på AIC, RSE och adj.R^2 men primära målet är att få ned vif-värden vilket det gjorde.
+
+Prövar ta bort logx2 dels pga av x5 = x2 / x1 och dels dess starka 
+korrelationer med logx17 och logx18.
+```{r}
+model1 <- update(log_model_livestock, .~. - logx2)
+summary(model1)
+AIC(model1)
+vif(model1)
+```
+Rejält mycket lägre vif-värden på logx1 och logx5. Ingen större förlust på AIC, adj.R^2 och RSE.
+
+Eftersom x1 är summan x6 till x15 så finns här ett starkt beroende. Prövar ta 
+bort samtliga av logx6 till logx15.
+```{r}
+model2 <- update(model1, .~. - logx6 - logx7 - logx8 - logx9 - logx10 - logx11 - logx12 - logx13- logx14 - logx15)
+summary(model2)
+AIC(model2)
+vif(model2)
+```
+AIC minskade till 161.5, R^2 minskade lite till 0.928, RSE ökade lite till 0.486. Klart lägre värden på vif, ingen över 3 nu. 
+Har nu också signifikans på samtliga variabler bortsett från 3 landsdummyvariabler.
+
+Kollar residualdiagnostik på modellen.
+```{r}
+par(mfrow = c(2, 2))
+plot(model2)
+```
+Plottarna ser ut att uppfylla normalfördelade residualer, linjäritet och homoskedasticitet.
+
+Allt som allt får denna modell sägas vara en bra och stabil förklarande modell. Vi har en hög förklaringsgrad med adj.R^2 0.928 som utöver att vi jobbar med ekologiska
+system där variationen är naturligt stor ändå ger ett bra RSE på 0.486 i log-skala. Vårt AIC på 161.5 är också det näst lägsta av samtliga modeller vi testat.
+
+Så för att besvara fråga 1: Om det finns samband mellan förklaringsvariabler och
+vattnets kvävehalt som är giltiga i hela Östersjöområdet, så är svaret ja. 
+
+Vi har ju statistisk signifikans på samtliga av våra förklaringsvariabler i modellen med positiv
+effekt av logx1, vilket ju är rimligt då större avrinningsområde leder till mer
+kvävetillförsel. x3-andel som bor i städer har negativ effekt vilket kan tyda på att 
+människor i stadsmiljö i högre grad är koppplade till bättre reningssystem, vilket är 
+fullt rimligt.
+
+Koefficienten för logx5 är positiv, fullt rimligt då tätare befolkning leder till 
+mer kväve. x16-avrinningen har positiv effekt och naturligtvis, mer avrinning, 
+mer vatten leder till mer kväve. Koefficienten för x19 är negativ vilket säger
+att ju högre andel som är anslutna till reningsverk desto mindre kväve ut till
+vattendragen, fullt rimligt såklart. Slutligen livestock som är en ihopslagning 
+av antal svin och antal nötkreatur, denna har en positiv effekt, vilket är 
+förväntat då boskapsdjur, jordbruk osv... har väldigt mycket kväve i gödsel osv...
+
+
+
+
+
+--------------------------------------------------------------Fråga2-----------------------------------------------------------------------------------
+
+För att undersöka om sambanden mellan kvävetillförsel (DIN) och de olika förklaringsvariablerna 
+skiljer sig mellan länder skapas en interaktionsmodell där varje förklaringsvariabel får
+interagera med land (x20).
+```{r}
+interaction_model <- lm(log(y) ~ (logx1 + x3 + logx5 + x16 + x19 + log_livestock) * x20,
+                        data = baltic_data)
+
+anova(model2, interaction_model)
+summary(interaction_model)
+```
+
+
+Vid granskning av modellen visar sig inga enskilda interaktioner mellan land och 
+övriga variabler vara statistiskt signifikanta på 5%-nivån. Dessutom visar ett ANOVA-test
+att modellen med interaktioner inte förbättrar modellens förklaringskraft signifikant 
+jämfört med modellen utan interaktioner (p = 0.24).
+
+Detta tyder på att sambanden mellan DIN och faktorer såsom avrinningsområdets storlek, 
+befolkningstäthet, avrinning, boskap samt reningsverk är relativt lika över olika länder kring 
+Östersjön. Däremot finns det skillnader i grundnivåer av DIN mellan länder, vilket fångas
+upp genom x20 som faktor (utan interaktioner).
+
+Litauen har bara 1 observation vilket leder till några utav de NA som går att se 
+i summary, vi har även variabler med lite variation 
+såsom x19 där varje land har samma andel anslutna till reningsverk som också leder 
+till NA, men anova-test fortfarande giltigt.
+
+
+
+
+--------------------------------------------------------------Fråga3---------------------------------------------------------------------------------
+
+Skapar en modell som innehåller alla förklaringsvariabler för att jämföra
+med andra prediktionsmodeller. Tar bort Litauen som med sin enda observation ställer 
+till problem för LOOCV. Inget större problem vid prediktion för hela Östersjön.
+```{r}
+baltic_data_no_LITHUANIA <- subset(baltic_data, x20 != "LITHUANIA") # Observation 74
+
+base_model <- lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + x11 
+                     + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20, 
+                     data = baltic_data_no_LITHUANIA)
+```
+
+Kollar efter outliers som kan påverka prediktion.
+```{r}
+par(mfrow = c(2, 2))
+plot(base_model)
+```
+7 st punkter utanför Cook´s linjer
+
+Identifierar dessa.
+```{r}
+top_influential <- order(cooks, decreasing = TRUE)[1:7]
+baltic_data[top_influential, ]
+```
+Outliers: observation 10, 11, 23, 65, 73, 79, 105.
+
+Kollar RMSEP värdet med LOOCV på fulla modellen med alla outliers kvar samt med en borttagen åt gången.
+```{r}
+outliers <- c(NA, 10, 11, 23, 65, 73, 79, 105)  # NA betyder ingen borttagning
+
+for (r in outliers) {
+  if (is.na(r)) {
+    temp_data <- baltic_data_no_LITHUANIA
+  } else {
+    temp_data <- baltic_data_no_LITHUANIA[-r, ]
+  }
+  
+  sep <- numeric(nrow(temp_data))
+  
+  for (i in 1:nrow(temp_data)) {
+    train_data <- temp_data[-i, ]
+    test_data <- temp_data[i, , drop = FALSE]
+    model_mult <- lm(y ~ x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 + x11 
+                       + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20, 
+                       data = train_data)
+    
+    predicted_value <- predict(model_mult, newdata = test_data)
+    sep[i] <- (test_data$y - predicted_value)^2
+  }
+  loocv_msep <- mean(sep)
+  
+  if (is.na(r)) {
+    print(paste("RMSEP för hela datamängden (ingen borttagning):", sqrt(loocv_msep)))
+    rel_pred <- sqrt(loocv_msep) / sd(temp_data$y)
+    print(paste("Relativt prediktionsfel:", rel_pred))
+  } else {
+    print(paste("RMSEP för outlier", r, "borttagen:", sqrt(loocv_msep)))
+    rel_pred <- sqrt(loocv_msep) / sd(temp_data$y)
+    print(paste("Relativt prediktionsfel:", rel_pred))
+  }
+}
+```
+Fick RMSEP 4540.6 för med alla outliers och det lägsta RMSEP 3701 då observation 65 plockades bort.
+
+Kollar den logaritmerade modellen för prediktion.
+```{r}
+log_base_model <- lm(log(y) ~ logx1 + logx2 + x3 + logx5 + logx6 + logx7 + 
+    logx8 + logx9 + logx10 + logx11 + logx12 + logx13 + logx14 + 
+    logx15 + x16 + logx17 + logx18 + x19 + x20, baltic_data_no_LITHUANIA)
+```
+
+Kollar efter outliers som kan påverka prediktion.
+```{r}
+par(mfrow = c(2, 2))
+plot(log_base_model)
+```
+Inga outliers i Residuals vs Leverage plot.
+
+Kollar RMSEP värdet med LOOCV på log-modellen utan x4 med alla outliers och med en outlier borttagen åt gången.
+```{r}
+sep <- numeric(nrow(temp_data))
+
+for (i in 1:nrow(temp_data)) {
+  train_data <- temp_data[-i, ]
+  test_data <- temp_data[i, , drop = FALSE]
+  model_mult <- lm(log(y) ~ logx1 + logx2 + x3 + logx5 + logx6 + logx7 + 
+                  logx8 + logx9 + logx10 + logx11 + logx12 + logx13 + 
+                  logx14 + logx15 + x16 + logx17 + logx18 + x19 + x20, 
+                     data = train_data)
+  
+  predicted_value <- exp(predict(model_mult, newdata = test_data))
+  sep[i] <- (test_data$y - predicted_value)^2
+}
+loocv_msep <- mean(sep)
+
+print(paste("RMSEP för hela datamängden (ingen borttagning):", sqrt(loocv_msep)))
+rel_pred <- sqrt(loocv_msep) / sd(temp_data$y)
+print(paste("Relativt prediktionsfel:", rel_pred))
+```
+LOOCV-RMSEP: 3101.058 (bättre än basmodellen) SD of y: 10593.71 -> felet i prediktionerna är ca 29% av standardavvikelsen för y, vilket ses som ett bra värde för prediktion.
+
+
+```{r}
+reduced_model <- lm(log(y) ~ logx1 + x3 + logx5 + x16 + x19 + x20 + log_livestock, baltic_data_no_LITHUANIA)
+```
+
+Kollar efter outliers som kan påverka prediktion.
+```{r}
+par(mfrow = c(2, 2))
+plot(reduced_model)
+```
+Inga outliers i Residuals vs Leverage plot.
+
+Kollar RMSEP för den förklarande modellen.
+```{r}
+sep <- numeric(nrow(temp_data))
+
+for (i in 1:nrow(temp_data)) {
+  train_data <- temp_data[-i, ]
+  test_data <- temp_data[i, , drop = FALSE]
+  model_mult <- lm(log(y) ~ logx1 + x3 + logx5 + x16 + x19 + x20 + log_livestock, 
+                     data = train_data)
+  
+  predicted_value <- exp(predict(model_mult, newdata = test_data))
+  sep[i] <- (test_data$y - predicted_value)^2
+}
+loocv_msep <- mean(sep)
+
+print(paste("RMSEP för hela datamängden (ingen borttagning):", sqrt(loocv_msep)))
+rel_pred <- sqrt(loocv_msep) / sd(temp_data$y)
+print(paste("Relativt prediktionsfel:", rel_pred))
+```
+LOOCV-RMSEP: 4010.1 (sämre än logmodellen där endast x4 är borttagen). Felet i prediktionerna är ca 38% av standardavvikelsen för y, vilket ses som ett bra värde för prediktion.
