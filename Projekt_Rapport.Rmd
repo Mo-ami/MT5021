@@ -107,9 +107,13 @@ Målet är att modellera och jämföra hur DIN (dissolved inorganic nitrogen) i 
 
 **Länder och antal.** Datasetet omfattar 7 länder och ett "MISSING" kategori:
 
-```{r}
-paste(sprintf("%s (%d)", names(table(df$x20_country)), as.integer(table(df$x20_country))), collapse = ", ")
+```{r, results='asis'}
+country_counts <- table(df$x20_country)
+country_text <- sprintf("%s (%d)", names(country_counts), as.integer(country_counts))
+# Create line breaks every 3-4 countries
+cat(paste(country_text, collapse = ", "))
 ```
+
 
 Vi ser att Litaun har en observation och Polen och Ryssland har endast 2. 
 
@@ -128,13 +132,18 @@ Vi ser att Litaun har en observation och Polen och Ryssland har endast 2.
 | $x19$      | numerisk | Anslutning reningsverk (%)                  |
 | $x20$      | char   | Land                                        |
 
-
-
 Vi omvandlade $x20$ till faktor för att utföra R funktioner. 
 
-
-
 ## Data & Förberedelser
+
+
+
+
+
+.
+
+
+
 
 ```{r, fig.width=7, fig.height=7}
 numeric_x <- c("x1_area_km2","x2_population","x3_urban_percent","x5_population_density_km2",
@@ -150,9 +159,11 @@ for (v in numeric_x) {
 }
 ```
 
+
 ```{r}
 boxplot(y ~ x20_country, data=df, main="y by country", xlab="Country", ylab="y (kg)", las=2)
 ```
+
 
 ```{r}
 hist(df$y, breaks="FD", main="Histogram of y (DIN, kg)", xlab="y (kg)")
