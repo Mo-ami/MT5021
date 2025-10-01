@@ -522,7 +522,7 @@ I del 4.4-4.5 så förekommer för modell B och C några inlytelserika outliers.
 
 
 # 7 Gruppmedlemmarnas arbetsinsats
-
+Vi alla började jobba på eget håll med egna modeller osv... för att sedan sammanstråla vid rapportskrivningen.
 
 # A Appendix: Grafer, R-kod, output om modeller
 
