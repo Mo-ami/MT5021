@@ -147,8 +147,6 @@ for (v in numeric_x) {
 }
 ```
 
-
-
 ```{r}
 boxplot(y ~ x20_country, data=df, main="y by country", xlab="Country", ylab="y (kg)", las=2)
 ```
@@ -157,10 +155,19 @@ boxplot(y ~ x20_country, data=df, main="y by country", xlab="Country", ylab="y (
 hist(df$y, breaks="FD", main="Histogram of y (DIN, kg)", xlab="y (kg)")
 ```
 
+
+* Spridningsdiagram (y mot x1–x19): tydligt positivt samband för x1 area, x2 population, x11 jordbruksmark, x15 artificiella ytor, x17 svin och x18 nöt. x9 buskmark ser positiv ut men drivs av ett fåtal extrema värden; x13 inlandsvatten svagt–måttligt positivt.
+* Svagt/oklart samband: x3 urban andel, x5 täthet, skogstyperna x6–x8, x10 våtmark.
+* Negativ lutning: x12 häll/berg, x14 snö/is och x19 reningsanslutning. x16 avrinning nära noll/svagt negativ i råa data.
+* Heteroskedasticitet och outliers: variationen i y ökar med nivån och flera paneler påverkas av några mycket stora vattendrag.
+* Boxplot (y per land): Polen högst, Ryssland/Latvia mellanhöga, Sverige och Finland generellt låga; stor inomlands-variation och sned fördelning.
+* Histogram: y är kraftigt högerskev med några extrema toppar → log-transform av y är motiverad.
+
+
 # 4 Statistisk modellering
 
 **Kommentar om kollinearitet.**
-$x3+x4=100$ (perfekt kollinearitet). $x5$ är härledd ur $x2$ och $x1$. Summan av markandelsvariabler $x6$–$x15$ är $x1$, vilket ger nära-perfekt kollinearitet. Vi exkluderar $x4$, $x5$ och $x12$ enligt anvisning.
+$x3+x4=100$ (perfekt kollinearitet). $x5$ är härledd ur $x2$ och $x1$. Summan av markandelsvariabler $x6$–$x15$ är $x1$, vilket ger nära-perfekt kollinearitet. Vi måste därför exkludera en, t.ex $x_12$, och exkluderar $x4$, $x5$ och $x12$ enligt anvisning.
 
 ## 4.1 Grundläggande grafer
 
