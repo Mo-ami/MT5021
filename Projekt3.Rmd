@@ -64,7 +64,7 @@ df$x17_swine  <- df$x17
 df$x18_cattle <- df$x18
 
 # x19: anslutning till reningsverk från (%) till andel
-df$x19_treatment_prop <- df$x19/100
+df$x19_treatment_percent <- df$x19
 
 # x20: land (faktor, hantera saknade)
 df$x20_country <- df$x20
@@ -174,7 +174,7 @@ numeric_x <- c("x1_area_km2","x2_population","x3_urban_percent","x5_population_d
                "x9_shrubland_km2","x10_wetland_km2","x11_agricultural_land_km2",
                "x12_bare_rock_km2","x13_inland_water_km2","x14_snow_ice_km2",
                "x15_artificial_surfaces_km2","x16_runoff","x17_swine","x18_cattle",
-               "x19_treatment_prop")
+               "x19_treatment_percent")
 par(mfrow=c(3,3), mar=c(4,4,2,1))
 for (v in numeric_x) {
   plot(df[[v]], df$y, xlab=v, ylab="y (DIN, kg)", main=paste("y vs", v))
@@ -214,7 +214,7 @@ vars_trans <- c("x1_area_km2_log","x2_population_log","x3_urban_percent","x4_rur
                 "x9_shrubland_prop","x10_wetland_prop","x11_agricultural_land_prop",
                 "x13_inland_water_prop","x14_snow_ice_prop","x15_artificial_surfaces_prop",
                 "x16_runoff","x17_swine_log","x18_cattle_log",
-                "x19_treatment_prop")
+                "x19_treatment_percent")
 
 par(mfrow=c(3,3), mar=c(4,4,2,1))
 for (v in vars_trans) {  
@@ -244,7 +244,7 @@ hist(df$y_log, breaks="FD", main="Histogram of y_log (log-transformed DIN)", xla
 
 * Måttligt/svagt positiva: `x3_urban_percent`, `x6_deciduous_forest_prop`, `x13_inland_water_prop`.
 
-* Negativa: `x4_rural_percent` (spegel av `x3`), `x7_coniferous_forest_prop`, `x8_mixed_forest_prop`, `x19_treatment_prop`.
+* Negativa: `x4_rural_percent` (spegel av `x3`), `x7_coniferous_forest_prop`, `x8_mixed_forest_prop`, `x19_treatment_percent`.
 
 * Nära platta eller svagt negativa: `x10_wetland_prop`, `x14_snow_ice_prop`, `x16_runoff` (ungefär kring noll).
 
@@ -279,7 +279,7 @@ form_full_log <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent 
   x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
   x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
   x13_inland_water_prop + x14_snow_ice_prop + x15_artificial_surfaces_prop +
-  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_prop +
+  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_percent +
   x20_country
 
 fit_full_log <- lm(form_full_log, data=df)
@@ -296,13 +296,13 @@ summary(fit_step_log)
 #### Tolkning 
 
 * **Full modell:** Starka och signifikanta samband för
-  `x2_population_log` **(+),** `x16_runoff` **(+),** samt `x19_treatment_prop` **(–)**.
+  `x2_population_log` **(+),** `x16_runoff` **(+),** samt `x19_treatment_percent` **(–)**.
   `x17_swine_log` är svagt **(+)**. Övriga markanvändnings- och djurvariabler (inkl. `x18_cattle_log`) saknar tydlig effekt.
   **Land:** `SWEDEN` har **lägre nivå** än referensländerna (p < 0.01).
   Modellens förklaringsgrad är hög (Adj. (R^2 \approx 0.93)).
 
 * **Stegvis AIC:** Behåller i huvudsak samma kärnsignaler och förenklar modellen:
-  `x2_population_log` **(+),** `x16_runoff` **(+),** `x17_swine_log` **(+),** `x19_treatment_prop` **(–)**.
+  `x2_population_log` **(+),** `x16_runoff` **(+),** `x17_swine_log` **(+),** `x19_treatment_percent` **(–)**.
   Dessutom svagare markanvändningssamband: `x7_coniferous_forest_prop` **(+),** `x6_deciduous_forest_prop` **(+, gräns),** `x9_shrubland_prop` **(+, gräns),** samt `x3_urban_percent` **(–, gräns)**.
   **Land:** `SWEDEN` kvarstår **lägre**. Anpassningen är i stort oförändrad (Adj. (R^2 \approx 0.935)).
 
@@ -378,7 +378,7 @@ form_full_raw <- y ~ x1_area_km2 + x2_population + x3_urban_percent +
   x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
   x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
   x13_inland_water_prop + x14_snow_ice_prop + x15_artificial_surfaces_prop +
-  x16_runoff + x17_swine + x18_cattle + x19_treatment_prop + x20_country
+  x16_runoff + x17_swine + x18_cattle + x19_treatment_percent + x20_country
 
 fit_full_raw <- lm(form_full_raw, data=df)
 summary(fit_full_raw)
@@ -415,7 +415,7 @@ form_no_country <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percen
   x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
   x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
   x13_inland_water_prop + x14_snow_ice_prop + x15_artificial_surfaces_prop +
-  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_prop
+  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_percent
 
 fit_no_country <- lm(form_no_country, data=df)
 fit_step_no_country <- MASS::stepAIC(fit_no_country, direction="both", trace=FALSE)
@@ -590,7 +590,7 @@ form_A <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
   x6_deciduous_forest_km2_log + x7_coniferous_forest_km2_log + x8_mixed_forest_km2_log +
   x9_shrubland_km2_log + x10_wetland_km2_log + x11_agricultural_land_km2_log +
   x13_inland_water_km2_log + x14_snow_ice_km2_log + x15_artificial_surfaces_km2_log +
-  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_prop + x20_country
+  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_percent + x20_country
 
 fit_A <- lm(form_A, data=df)
 rmse_A <- loocv_rmse(form_A, df, response_is_log=TRUE, use_smearing=TRUE)
@@ -601,7 +601,7 @@ form_B <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
   x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
   x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
   x13_inland_water_prop + x14_snow_ice_prop + x15_artificial_surfaces_prop +
-  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_prop + x20_country
+  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_percent + x20_country
 
 fit_B <- lm(form_B, data=df)
 rmse_B <- loocv_rmse(form_B, df, response_is_log=TRUE, use_smearing=TRUE)
@@ -612,7 +612,7 @@ form_C <- y ~ x1_area_km2 + x2_population + x3_urban_percent +
   x6_deciduous_forest_km2 + x7_coniferous_forest_km2 + x8_mixed_forest_km2 +
   x9_shrubland_km2 + x10_wetland_km2 + x11_agricultural_land_km2 +
   x13_inland_water_km2 + x14_snow_ice_km2 + x15_artificial_surfaces_km2 +
-  x16_runoff + x17_swine + x18_cattle + x19_treatment_prop + x20_country
+  x16_runoff + x17_swine + x18_cattle + x19_treatment_percent + x20_country
 
 fit_C <- lm(form_C, data=df)
 rmse_C <- loocv_rmse(form_C, df, response_is_log=FALSE, use_smearing=FALSE)
@@ -772,4 +772,7 @@ $$
    \Delta y\approx(1+\hat y_{\text{bas}}),\beta,\Delta X.
    $$
 
-
+```{r}
+A_VIF <- vif_numeric(fit_A_step2, df)
+A_VIF
+```
