@@ -1,0 +1,607 @@
+---
+title: "MT5021 — Övningsprojekt A8 – Tillförsel av kväve till Östersjön"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    df_print: paged
+  pdf_document: default
+---
+
+
+
+**Projektnummer:** *[fyll i]*
+**Projektnamn:** Tillförsel av kväve (DIN) till Östersjön
+**Grupp:** Namn Efternamn, Namn Efternamn, Namn Efternamn
+**Oktober 2025**
+
+```{r setup, include=FALSE}
+options(stringsAsFactors = FALSE)
+set.seed(5021)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+
+
+```{r, results='hide'}
+# Läs in data
+dat_raw <- read.csv("baltic_DIN.csv", sep = ",", header = TRUE, check.names = FALSE)
+
+# Arbetskopia
+df <- dat_raw
+
+# Enheter och nya namn
+df$x1_area_km2 <- df$x1 * 0.01
+df$x2_population <- df$x2
+df$x3_urban_percent <- df$x3
+df$x4_rural_percent <- df$x4
+df$x5_population_density_km2 <- df$x5
+df$x6_deciduous_forest_km2      <- df$x6  * 0.01
+df$x7_coniferous_forest_km2     <- df$x7  * 0.01
+df$x8_mixed_forest_km2          <- df$x8  * 0.01
+df$x9_shrubland_km2             <- df$x9  * 0.01
+df$x10_wetland_km2              <- df$x10 * 0.01
+df$x11_agricultural_land_km2    <- df$x11 * 0.01
+df$x12_bare_rock_km2            <- df$x12 * 0.01
+df$x13_inland_water_km2         <- df$x13 * 0.01
+df$x14_snow_ice_km2             <- df$x14 * 0.01
+df$x15_artificial_surfaces_km2  <- df$x15 * 0.01
+df$x16_runoff <- df$x16
+df$x17_swine  <- df$x17
+df$x18_cattle <- df$x18
+df$x19_treatment_prop <- df$x19/100
+df$x20_country <- df$x20
+df$x20_country[is.na(df$x20_country) | df$x20_country == "" ] <- "MISSING"
+df$x20_country <- factor(df$x20_country)
+df$sweden_group <- factor(ifelse(df$x20_country == "SWEDEN", "Sweden", "Non-Sweden"),
+                          levels = c("Non-Sweden","Sweden"))
+
+# Hjälpfunktion för loggar
+log1p_safe <- function(z) log1p(pmax(z, 0))
+
+# Respons och loggar
+df$y_log <- log1p_safe(df$y)
+df$x1_area_km2_log    <- log1p_safe(df$x1_area_km2)
+df$x2_population_log  <- log1p_safe(df$x2_population)
+df$x17_swine_log      <- log1p_safe(df$x17_swine)
+df$x18_cattle_log     <- log1p_safe(df$x18_cattle)
+
+# Andelar av total area
+area_total <- df$x1_area_km2
+df$x6_deciduous_forest_prop     <- df$x6_deciduous_forest_km2     / area_total
+df$x7_coniferous_forest_prop    <- df$x7_coniferous_forest_km2    / area_total
+df$x8_mixed_forest_prop         <- df$x8_mixed_forest_km2         / area_total
+df$x9_shrubland_prop            <- df$x9_shrubland_km2            / area_total
+df$x10_wetland_prop             <- df$x10_wetland_km2             / area_total
+df$x11_agricultural_land_prop   <- df$x11_agricultural_land_km2   / area_total
+df$x12_bare_rock_prop           <- df$x12_bare_rock_km2           / area_total
+df$x13_inland_water_prop        <- df$x13_inland_water_km2        / area_total
+df$x14_snow_ice_prop            <- df$x14_snow_ice_km2            / area_total
+df$x15_artificial_surfaces_prop <- df$x15_artificial_surfaces_km2 / area_total
+
+# Loggar för areor (x6–x15)
+df$x6_deciduous_forest_km2_log      <- log1p_safe(df$x6_deciduous_forest_km2)
+df$x7_coniferous_forest_km2_log     <- log1p_safe(df$x7_coniferous_forest_km2)
+df$x8_mixed_forest_km2_log          <- log1p_safe(df$x8_mixed_forest_km2)
+df$x9_shrubland_km2_log             <- log1p_safe(df$x9_shrubland_km2)
+df$x10_wetland_km2_log              <- log1p_safe(df$x10_wetland_km2)
+df$x11_agricultural_land_km2_log    <- log1p_safe(df$x11_agricultural_land_km2)
+df$x12_bare_rock_km2_log            <- log1p_safe(df$x12_bare_rock_km2)
+df$x13_inland_water_km2_log         <- log1p_safe(df$x13_inland_water_km2)
+df$x14_snow_ice_km2_log             <- log1p_safe(df$x14_snow_ice_km2)
+df$x15_artificial_surfaces_km2_log  <- log1p_safe(df$x15_artificial_surfaces_km2)
+
+# Lagrar sammanräkningar för inline-text
+country_tbl  <- table(df$x20_country)
+```
+
+
+# 1 Sammanfattning
+
+Sambanden mellan tillförsel av löst oorganiskt kväve (DIN) och demografiska- samt olika mark faktorer i Östersjöns avrinningsområden har analyserats med en förklaringsmodell som vi tagit fram genom logtransformeringar, manuell variabelselektion och step-funktionen. Resultaten i vår modell visar att DIN främst ökar med befolkning, avrinning och antal svin, medan hög anslutning till reningsverk minskar DIN. Sverige har lägre grundnivå än övriga länder men ingen statistiskt signifikant skillnad mellan förklaringsvariablerna. Även en prediktionsmodell togs fram med relativt RMSEP på 34% vilket i vårt sammanhang får anses bra.
+
+# 2 Inledning
+
+Målet är att modellera och jämföra hur DIN (dissolved inorganic nitrogen) i tillrinnande vattendrag påverkas av avrinningsområdets storlek, befolkning, demografi, marksammansättning, djurhållning, avrinning samt reningsanslutning. Samt att bedöma om sambanden skiljer mellan Sverige och övriga länder. Vi utvärderar modeller både för inferens och prediktion (LOOCV).
+
+# 3 Data
+
+**Källa och struktur.** Datasetet `baltic_DIN.csv` består av avrinningsområden med variabler $x_1,\dots,x_{20}$ och respons $y$ (DIN, kg). Vi omvandlar areor från ha till km², logtransformerar vissa variabler och gör om areor till andelar. Samt omvandlar x20 till en faktor för att kunna använda i regressionsmodell.
+
+<<<<<<< Updated upstream
+**Länder och antal.** Datasetet omfattar $r$ `nlevels(df$x20_country)` länder:
+`
+paste(sprintf("%s (%d)", names(table(df$x20_country)), as.integer(table(df$x20_country))), collapse = ", "
+`
+=======
+**Länder och antal.** Datasetet omfattar 7 länder och ett "MISSING" kategori:
+```{r}
+paste(sprintf("%s (%d)", names(table(df$x20_country)), as.integer(table(df$x20_country))), collapse = ", ")
+```
+
+Vi ser att Litauen har en observation och Polen och Ryssland har endast 2. 
+>>>>>>> Stashed changes
+
+**Variabler (urval).**
+
+| Variabel   | Typ      | Beskrivning                                 |
+| ---------- | -------- | ------------------------------------------- |
+| $y$        | numerisk | DIN (kg)                                    |
+| $x1$       | numerisk | Avrinningsområde (ha $\rightarrow$ km²)     |
+| $x2$       | numerisk | Befolkning                                  |
+| $x3,x4$    | numerisk | Andel stad/land (%)                         |
+| $x5$       | numerisk | Befolkningstäthet (inv/km²)                 |
+| $x6$–$x15$ | numerisk | Markanvändningsareor (ha $\rightarrow$ km²) |
+| $x16$      | numerisk | Avrinning (mm/år)                           |
+| $x17,x18$  | numerisk | Svin/Nöt (antal)                            |
+| $x19$      | numerisk | Anslutning reningsverk (%)                  |
+| $x20$      | char   | Land                                        |
+
+
+
+
+## Data & Förberedelser
+
+```{r, fig.width=7, fig.height=7}
+numeric_x <- c("x1_area_km2","x2_population","x3_urban_percent","x5_population_density_km2",
+               "x6_deciduous_forest_km2","x7_coniferous_forest_km2","x8_mixed_forest_km2",
+               "x9_shrubland_km2","x10_wetland_km2","x11_agricultural_land_km2",
+               "x12_bare_rock_km2","x13_inland_water_km2","x14_snow_ice_km2",
+               "x15_artificial_surfaces_km2","x16_runoff","x17_swine","x18_cattle",
+               "x19_treatment_prop")
+par(mfrow=c(3,3), mar=c(4,4,2,1))
+for (v in numeric_x) {
+  plot(df[[v]], df$y, xlab=v, ylab="y (DIN, kg)", main=paste("y vs", v))
+  abline(lm(df$y ~ df[[v]]), col="red", lwd=2)
+}
+```
+
+```{r}
+boxplot(y ~ x20_country, data=df, main="y by country", xlab="Country", ylab="y (kg)", las=2)
+```
+
+```{r}
+hist(df$y, breaks="FD", main="Histogram of y (DIN, kg)", xlab="y (kg)")
+```
+
+
+<<<<<<< Updated upstream
+* Spridningsdiagram (y mot x1–x19): tydligt positivt samband för x1 area, x2 population, x11 jordbruksmark, x15 artificiella ytor, x17 svin och x18 nöt. x9 buskmark ser positiv ut men drivs av ett fåtal extrema värden; x13 inlandsvatten svagt–måttligt positivt.
+* Svagt/oklart samband: x3 urban andel, x5 täthet, skogstyperna x6–x8, x10 våtmark.
+* Negativ lutning: x12 häll/berg, x14 snö/is och x19 reningsanslutning. x16 avrinning nära noll/svagt negativ i råa data.
+* Heteroskedasticitet och outliers: variationen i y ökar med nivån och flera paneler påverkas av några mycket stora vattendrag.
+* Boxplot (y per land): Polen högst, Ryssland/Latvia mellanhöga, Sverige och Finland generellt låga; stor inomlands-variation och sned fördelning.
+* Histogram: y är kraftigt högerskev med några extrema toppar → log-transform av y är motiverad.
+=======
+#### Tolkning av scatterplot 
+
+Spridningsdiagrammen ($y$ mot $x_1$–$x_{19}$) visar tydligt positiva samband för $x_1$ (avrinningsområdets area), $x_2$ (befolkning), $x_{11}$ (jordbruksmark), $x_{15}$ (artificiella ytor), $x_{17}$ (svin) och $x_{18}$ (nöt); $x_9$ (buskvegetation) ser också positiv ut men effekten drivs av några få extrema värden, och $x_{13}$ (inlandsvatten) är svagt–måttligt positiv. Sambanden är svaga eller oklara för $x_3$ (urban andel), $x_5$ (befolkningstäthet), skogstyperna $x_6$–$x_8$ samt $x_{10}$ (våtmark). Negativ lutning ses för $x_{12}$ (häll/berg), $x_{14}$ (snö/is) och $x_{19}$ (reningsanslutning), medan $x_{16}$ (avrinning) ligger nära noll eller svagt negativ i råa data. Variationen i $y$ ökar med nivån och flera paneler påverkas av några mycket stora vattendrag (heteroskedasticitet och outliers). Boxplottar av $y$ per land visar Polen högst, Ryssland och Lettland mellanhöga samt Sverige och Finland generellt låga nivåer, med stor inomlandsvariation och sned fördelning. Histogrammet visar att $y$ är kraftigt högerskev med några extrema toppar, vilket motiverar en $\log$-transform av $y$; dessutom ligger många punkter långt till vänster i plottarna, vilket ytterligare talar för $\log$-transform för att få en mer symmetrisk fördelning.
+>>>>>>> Stashed changes
+
+* Eftersom alla punkterna är till vänster i plottarna motiveras log-trasnform för att få mer symmetrisk fördelning. 
+
+# 4 Statistisk modellering
+
+**Kommentar om kollinearitet.**
+$x3+x4=100$ (perfekt kollinearitet). $x5$ är härledd ur $x2$ och $x1$. Summan av markandelsvariabler $x6$–$x15$ är $x1$, vilket ger nära-perfekt kollinearitet. Vi måste därför exkludera en, t.ex $x_12$, och exkluderar $x4$, $x5$ och $x12$ enligt anvisning.
+
+Vi börjar med att transformera responssvariabeln $y$ och $x_1$, $x_2$, $x_17$ och $x_18$. På variablarna $x6-x15$ tar vi prportionerna för den observationen, alltså delad med $x1$. Vi testade ett ny scatterplots, histogram och lådagram. 
+
+
+## 4.1 Grundläggande grafer
+
+**Kort tolkning.** Positiva samband för area, befolkning, jordbruk, artificiella ytor, svin och nöt; negativt för reningsanslutning. $y$ är högerskev $\rightarrow$ log-transform.
+
+```{r, fig.width=7, fig.height=7}
+vars_trans <- c("x1_area_km2_log","x2_population_log","x3_urban_percent","x4_rural_percent","x5_population_density_km2",
+                "x6_deciduous_forest_prop","x7_coniferous_forest_prop","x8_mixed_forest_prop",
+                "x9_shrubland_prop","x10_wetland_prop","x11_agricultural_land_prop",
+                "x13_inland_water_prop","x14_snow_ice_prop","x15_artificial_surfaces_prop",
+                "x16_runoff","x17_swine_log","x18_cattle_log","x19_treatment_prop")
+par(mfrow=c(3,3), mar=c(4,4,2,1))
+for (v in vars_trans) {  
+  plot(df[[v]], df$y_log, xlab=v, ylab="y_log", main=paste("y_log vs", v))
+  abline(lm(df$y_log ~ df[[v]]), col="red", lwd=2)
+}
+```
+
+```{r}
+boxplot(y_log ~ x20_country, data=df, main="y_log by country", xlab="Country", ylab="y_log", las=2)
+```
+
+```{r}
+hist(df$y_log, breaks="FD", main="Histogram of y_log (log-transformed DIN)", xlab="y_log")
+```
+
+
+
+* Starka positiva samband med `y_log`: `x1_area_km2_log`, `x2_population_log`, `x5_population_density_km2`, `x11_agricultural_land_prop`, `x15_artificial_surfaces_prop`, `x17_swine_log`, `x18_cattle_log`, samt `x9_shrubland_prop` (delvis av få stora fall).
+
+* Måttligt/svagt positiva: `x3_urban_percent`, `x6_deciduous_forest_prop`, `x13_inland_water_prop`.
+
+* Negativa: `x4_rural_percent` (spegel av `x3`), `x7_coniferous_forest_prop`, `x8_mixed_forest_prop`, `x19_treatment_percent`.
+
+* Nära platta eller svagt negativa: `x10_wetland_prop`, `x14_snow_ice_prop`, `x16_runoff` (ungefär kring noll).
+
+* Boxplot (loggad respons, rätt version): Länder skiljer sig tydligt. `POLAND` har högst nivåer och liten spridning; `RUSSIA` och `LITHUANIA` mycket höga (Litauen en enstaka hög obs.); `LATVIA` också högt. `ESTONIA` och gruppen `MISSING` ligger mitt emellan. `FINLAND` och särskilt `SWEDEN` är lägst; Sverige har störst spridning bland de låga nivåerna.
+
+* Histogram av `y_log`: ungefär symmetriskt och klockformat (center cirka 7–8), vilket visar att log-transformen minskar skevhet och gör sambanden mer linjära och variansen jämnare.
+
+**Kort tolkning (log-skala).** Starka samband för $x1_{\log},x2_{\log},x11_{%},x15_{%},x17_{\log},x18_{\log}$; negativt för $x19$; länder skiljer sig i nivå.
+
+
+Log-transformationen gör data passar bättre på linjär regression. 
+
+
+## 4.2 Samband i hela Östersjöområdet (log-respons)
+Vi testade med alla variabler utan transformationen (förutom $x4$, $x5$ och $x12$). Vi testade VIF på modellen och såg väldigt höga värde på många variabler. Det visar av variablerna är kollineaära. Vi testade step-aic (båda riktning) på denna modellen och den fortfarande hade höga VIF värde. 
+
+Vi ett annat tillvägagångsätt genom att logaritmera responsonsvariabeln och några av förklaringsvariablerna och ta andel på del områderna ($x6-x15$). Vi testar med  alla variabler med transformationen (förutom $x4$, $x5$ och $x12$). Efter detta gjorde step-aic (båda riktning) och fick ett reducerat med mycket lägre VIF. 
+
+Justerade $R^2 = 0.9705$ för icke-transformerade modellen var högre än den transformerade some hade $R^2 = 0.9348$. 
+
+$$
+\begin{aligned}
+y_{\log} \sim & \text{x1_area_km2_log} + \text{x2_population_log} \\
+& + \text{x3_urban_percent} + \text{x6}\ldots\text{x11} \\
+& \text{(proportioner, utom x12)} \\
+& + \text{x13} + \text{x14} + \text{x15} \\
+& + \text{x16_runoff} + \text{x17_swine_log} \\
+& + \text{x18_cattle_log} + \text{x19_treatment_percent} \\
+& + \text{x20_country}.
+\end{aligned}
+$$
+
+```{r, results='hide'}
+form_full_log <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
+  x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
+  x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
+  x13_inland_water_prop + x14_snow_ice_prop + x15_artificial_surfaces_prop +
+  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_prop + x20_country
+fit_full_log <- lm(form_full_log, data=df)
+summary(fit_full_log)
+```
+
+**Stegvis AIC (båda riktningar).**
+
+```{r}
+fit_step_log <- MASS::stepAIC(fit_full_log, direction="both", trace=FALSE)
+summary(fit_step_log)
+```
+
+* **Full modell:** Starka och signifikanta samband för
+  `x2_population_log` **(+),** `x16_runoff` **(+),** samt `x19_treatment_percent` **(–)**.
+  `x17_swine_log` är svagt **(+)**. Övriga markanvändnings- och djurvariabler (inkl. `x18_cattle_log`) saknar tydlig effekt.
+  **Land:** `SWEDEN` har **lägre nivå** än referenslandet Estland (p < 0.01).
+  Modellens förklaringsgrad är hög (Adj. (R^2 \approx 0.93)).
+
+* **Stegvis AIC:** Behåller i huvudsak samma kärnsignaler och förenklar modellen:
+  `x2_population_log` **(+),** `x16_runoff` **(+),** `x17_swine_log` **(+),** `x19_treatment_percent` **(–)**.
+  Dessutom svagare markanvändningssamband: `x7_coniferous_forest_prop` **(+),** `x6_deciduous_forest_prop` **(+, gräns),** `x9_shrubland_prop` **(+, gräns),** samt `x3_urban_percent` **(–, gräns)**.
+  **Land:** `SWEDEN` kvarstår **lägre**. Anpassningen är i stort oförändrad (Adj. (R^2 \approx 0.935)).
+
+* I hela Östersjöområdet ökar DIN främst med **befolkning**, **avrinning** och **svin**; **hög anslutning till reningsverk minskar** DIN. Skogs-/buskandeler kan bidra svagt positivt. **Sverige har lägre basnivå** än övriga länder givet övriga faktorer.
+
+
+
+### VIF-kontroll (numeriska prediktorer)
+
+```{r, results='hide'}
+vif_numeric <- function(model, data){
+  tt <- terms(model)
+  labs <- attr(tt, "term.labels")
+  num_vars <- labs[sapply(labs, function(v) is.numeric(data[[v]]))]
+  out <- setNames(numeric(length(num_vars)), num_vars)
+  for (v in num_vars) {
+    others <- setdiff(num_vars, v)
+    if (length(others) == 0) { out[v] <- NA_real_; next }
+    r2 <- summary(lm(as.formula(paste(v, "~", paste(others, collapse="+"))), data=data))$r.squared
+    out[v] <- 1/(1 - r2)
+  }
+  out
+}
+vif_full_log <- vif_numeric(fit_full_log, df)
+vif_step_log <- vif_numeric(fit_step_log, df)
+vif_full_log
+```
+
+```{r}
+vif_step_log
+```
+
+### Diagnostik (log- resp. rå-respons)
+Vi testade med att ta fram diagnostikplottarna, 
+
+```{r, fig.width=7, fig.height=7}
+par(mfrow=c(2,2)); plot(fit_full_log)
+```
+
+
+**Full modell:** Starka och signifikanta samband för
+  `x2_population_log` **(+),** `x16_runoff` **(+),** samt `x19_treatment_percent` **(–)**.
+  `x17_swine_log` är svagt **(+)**. Övriga markanvändnings- och djurvariabler (inkl. `x18_cattle_log`) saknar tydlig effekt.
+  **Land:** `SWEDEN` har **lägre nivå** än referensländerna (p < 0.01).
+  Modellens förklaringsgrad är hög (Adj. (R^2 \approx 0.93)).
+
+**Stegvis AIC:** Behåller i huvudsak samma kärnsignaler och förenklar modellen:
+  `x2_population_log` **(+),** `x16_runoff` **(+),** `x17_swine_log` **(+),** `x19_treatment_percent` **(–)**.
+  Dessutom svagare markanvändningssamband: `x7_coniferous_forest_prop` **(+),** `x6_deciduous_forest_prop` **(+, gräns),** `x9_shrubland_prop` **(+, gräns),** samt `x3_urban_percent` **(–, gräns)**.
+  **Land:** `SWEDEN` kvarstår **lägre**. Anpassningen är i stort oförändrad (Adj. (R^2 \approx 0.935)).
+
+* I hela Östersjöområdet ökar DIN främst med **befolkning**, **avrinning** och **svin**; **hög anslutning till reningsverk minskar** DIN. Skogs-/buskandeler kan bidra svagt positivt. **Sverige har lägre basnivå** än övriga länder givet övriga faktorer.
+
+
+```{r, results='hide'}
+form_full_raw <- y ~ x1_area_km2 + x2_population + x3_urban_percent +
+  x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
+  x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
+  x13_inland_water_prop + x14_snow_ice_prop + x15_artificial_surfaces_prop +
+  x16_runoff + x17_swine + x18_cattle + x19_treatment_prop + x20_country
+fit_full_raw <- lm(form_full_raw, data=df)
+summary(fit_full_raw)
+```
+
+```{r, fig.width=7, fig.height=7}
+par(mfrow=c(2,2)); plot(fit_full_raw)
+```
+
+**Diagnostik (rå-respons) **
+
+* **Residuals vs Fitted:** Tydlig kurvatur och kraftig “funnel” → bruten linearitet och stark heteroskedasticitet. Ett par extrema punkter (t.ex. 11, 23, 10) sticker ut.
+* **Q–Q:** Klara avvikelser i båda svansar (särskilt övre; 11, 23). Normalantagandet håller dåligt.
+* **Scale–Location:** Variansen ökar med anpassat värde → tydlig heteroskedasticitet.
+* **Residuals vs Leverage:** Några observationer med mycket hög **leverage** nära/över Cook’s (D\approx1) (punkterna längst till höger) → potentiellt starkt inflytande på koefficienterna.
+
+Den linjära modellen på rå skala uppfyller inte antagandena (nonlinearitet, icke-konstant varians, inflytelserika punkter). En log-respons (som i huvudanalysen) är motiverad.
+
+Även om den otransformerade modellen har bättre justerade $R^2$ så kan man inte anta linjära antagande på modellen och använda den. Däremot är den transformerade modellen fyller kraven på linjär regression mycket och är mer relevant. 
+
+*Log-modellen uppfyller antagandena bättre än rå-modellen.*
+
+## 4.3 Samma variabler i Sverige som i grannländer?
+Vi skapade ett kategorisk variabel "Sweden group" och kategoriserade alla observation om de är Sverige eller inte. Vi skapade ett linjär regression modell på denna alla variabeln och sweden group förutom själva landkategori. Vi körde step-aic på denna variabeln för att få ett mer vald selektion av variabler att köra ett interaktion med. Vi körde anova interaktion test för denna vald del av variabler. Den valda variablerna blev y_log, x1_area_km2_log + x2_population_log + x3_urban_percent + x9_shrubland_prop + x16_runoff + x18_cattle_log + x19_treatment_percent med denna nya variabeln. 
+
+**Test av interaktioner och huvudeffekt (Sweden vs Non-Sweden).**
+
+```{r }
+form_no_country <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
+  x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
+  x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
+  x13_inland_water_prop + x14_snow_ice_prop + x15_artificial_surfaces_prop +
+  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_prop
+fit_no_country <- lm(form_no_country, data=df)
+fit_step_no_country <- MASS::stepAIC(fit_no_country, direction="both", trace=FALSE)
+formula(fit_step_no_country)
+
+form_step_sweden <- update(formula(fit_step_no_country), . ~ . + sweden_group)
+fit_step_sweden <- lm(form_step_sweden, data=df)
+
+selected_vars <- all.vars(formula(fit_step_no_country))[-1]
+form_step_interact <- as.formula(paste("y_log ~ (", paste(selected_vars, collapse=" + "), ") * sweden_group"))
+fit_step_interact <- lm(form_step_interact, data=df)
+
+anova(fit_step_sweden, fit_step_interact)   # interaktioner
+anova(fit_step_no_country, fit_step_sweden) # huvudeffekt
+```
+Interaktioner (p = 0,523). Det finns inga bevis för att Sverige reagerar olika på befolkning, avrinning, jordbruk etc. Vi testar också huvudeffekten.
+
+
+Huvudeffekt (p = 0,0001)
+Mycket signifikant. Sverige har en annan grundnivå (intercept) för DIN än övriga länder, även efter justering för de 7 variablerna.
+
+RSS-värden:
+
+Utan sweden_group: RSS = 25,15
+Med sweden_group: RSS = 21,56
+Minskning: 3,59 (14 % mindre oförklarad variation)
+
+Vi kan inte förkasta noll hypotesen att Sverige har samma lutning för variablerna som i granländerna. I andra ord vi kan att Sverige påverkas variabler jämfört med andra länder.  Men Sverige har systematiskt lägre DIN-nivåer överlag (annat intercept).
+
+
+Hypoteserna om Sweden-group och interaktioner bara är giltiga om just den modellen uppfyller LM-antagandena. 
+
+```{r, fig.width=7, fig.height=7}
+par(mfrow=c(2,2)); plot(fit_step_sweden)
+```
+
+**Diagnostik (vald log-modell)**
+Residualerna är centrerade kring noll utan tydlig struktur; endast en svag trend anas → linjäritet okej.
+Q–Q-plotten ligger nära diagonal med små svansavvikelser → normalitetsantagandet rimligt.
+Scale–Location visar nästan platt loess; något större spridning runt mellannivåer (≈7–8 i fitted) men ingen tydlig funnel → högst mild heteroskedasticitet.
+Residualer vs leverage: de flesta punkter har låg–måttlig leverage (<≈0.20) och alla ligger inom Cook’s (D<0.5) → inga klart inflytelserika observationer.
+Modellantagandena är i stort uppfyllda; eventuella små svansar/variansskillnader bedöms inte påverka huvudslutsatserna.
+
+
+**Full modell med alla prediktorer:**
+
+Vi testade också med anova interaktioner med hela modellen utan att välja med step-aic och fick p = 0,556)
+
+**Inte signifikant.** Samma slutsats som för utvalda variabler: inga bevis för att Sverige reagerar annorlunda på någon av de 16 prediktorerna.
+
+Diagnostikplotterna såg bra ut också på denna fulla modellen. 
+
+
+Vi testade också med den selektion av variablerna från för denna valda förklaringsmodell från 4.2, det visade inte några låg p-värde och kan inte förkasta variabeln. 
+
+
+## 4.4 Prediktion (LOOCV) och Duans smearing
+Vi vill nu se om det går att prediktera DIN utifrån förklaringsvariablerna. Här utvärderar vi modellernas **prediktiva precision** med **Leave-One-Out Cross-Validation (LOOCV)**, där vi använder **brute force**: för varje observation $i$ passas modellen om utan $i$, $i$ predikteras på rätt skala, felet sparas, och detta upprepas för alla $n$. För log-responsmodeller **backtransformeras prognoserna med Duan’s smearing**. När man prediktera nya värde med ett modell som man har log-transformerade så finns ett fel med baktransformation, man behöver använda något korrigering i detta Duan's smearing. Vi måste använda **brute force** istället hat matrisen för log-transformerade modellen eftersom vi behöver beräkna felkorrigering vid varje fall. 
+
+Vi jämför tre modellfamiljer och deras stepAIC-varianter:
+(A) log-respons + log-arealer, (B) log-respons + arealandelar (proportioner), (C) rå respons + råa variabler. **Urvalskriteriet är lägst LOOCV-RMSE på kg-skalan**; justerat $R^2$ rapporteras som komplement. Modellen med lägst LOOCV-RMSE används för slutlig diagnostik och redovisning av prediktioner.
+
+Litauen tas bort i LOOCV eftersom landet har endast en observation, vilket gör att formeln inte kan beräknas när landfaktorn saknas i vissa träningsfolds.
+
+
+Vi använder Duans smearing för **log-responsmodellerna** (`A`, `B`, `A_step`, `B_mapped`). Mer specifikt backtransformeras varje utelämnad prediktion som:
+
+$$
+\hat{y} = \exp(\hat{\eta}) \cdot \underbrace{\mathrm{mean}!\big(\exp(e)\big)}_{\text{smearingfaktor}} - 1,
+$$
+
+där $\hat{\eta}$ är den predikterade $\log(1+y)$ och $e$ är residualerna från den aktuella träningspassning.
+
+
+
+```{r}
+smearing_factor <- function(fit) mean(exp(residuals(fit)))
+
+loocv_rmse <- function(formula, data, response_is_log = FALSE, use_smearing = FALSE) {
+  n <- nrow(data); se <- numeric(n); skipped <- 0
+  for (i in seq_len(n)) {
+    train <- data[-i, , drop=FALSE]; test <- data[i, , drop=FALSE]
+    tryCatch({
+      fit_i <- lm(formula, data=train)
+      if (response_is_log) {
+        pred_log <- as.numeric(predict(fit_i, newdata=test))
+        if (use_smearing) {
+          sm <- smearing_factor(fit_i); pred <- exp(pred_log) * sm - 1
+        } else pred <- exp(pred_log) - 1
+      } else pred <- as.numeric(predict(fit_i, newdata=test))
+      se[i] <- (test$y - pred)^2
+    }, error=function(e){ se[i] <<- NA; skipped <<- skipped + 1 })
+  }
+  sqrt(mean(se, na.rm=TRUE))
+}
+```
+
+**Tre modellfamiljer.**
+
+```{r}
+# A: log y + log-arealer
+form_A <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
+  x6_deciduous_forest_km2_log + x7_coniferous_forest_km2_log + x8_mixed_forest_km2_log +
+  x9_shrubland_km2_log + x10_wetland_km2_log + x11_agricultural_land_km2_log +
+  x13_inland_water_km2_log + x14_snow_ice_km2_log + x15_artificial_surfaces_km2_log +
+  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_prop + x20_country
+fit_A <- lm(form_A, data=df)
+rmse_A <- loocv_rmse(form_A, df, response_is_log=TRUE, use_smearing=TRUE)
+adjr2_A <- summary(fit_A)$adj.r.squared
+
+# B: log y + andelar
+form_B <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
+  x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
+  x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
+  x13_inland_water_prop + x14_snow_ice_prop + x15_artificial_surfaces_prop +
+  x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_prop + x20_country
+fit_B <- lm(form_B, data=df)
+rmse_B <- loocv_rmse(form_B, df, response_is_log=TRUE, use_smearing=TRUE)
+adjr2_B <- summary(fit_B)$adj.r.squared
+
+# C: rå y + råa areor
+form_C <- y ~ x1_area_km2 + x2_population + x3_urban_percent +
+  x6_deciduous_forest_km2 + x7_coniferous_forest_km2 + x8_mixed_forest_km2 +
+  x9_shrubland_km2 + x10_wetland_km2 + x11_agricultural_land_km2 +
+  x13_inland_water_km2 + x14_snow_ice_km2 + x15_artificial_surfaces_km2 +
+  x16_runoff + x17_swine + x18_cattle + x19_treatment_prop + x20_country
+fit_C <- lm(form_C, data=df)
+rmse_C <- loocv_rmse(form_C, df, response_is_log=FALSE, use_smearing=FALSE)
+adjr2_C <- summary(fit_C)$adj.r.squared
+
+data.frame(
+  Model = c("LOG-RESP + LOG-AREAS (A)", "LOG-RESP + PROP-AREAS (B)", "RAW-RESP + RAW-ALL (C)"),
+  LOOCV_RMSE = c(rmse_A, rmse_B, rmse_C),
+  Adj_R2 = c(adjr2_A, adjr2_B, adjr2_C)
+)
+```
+```{r}
+print(paste("Relativt prediktionsfel för modell A:", rmse_A / sd(df$y)))
+print(paste("Relativt prediktionsfel för modell B:", rmse_B / sd(df$y)))
+print(paste("Relativt prediktionsfel för modell C:", rmse_C / sd(df$y)))
+```
+Relativt prediktionsfel för modell A = 0.342 säger att felet i prediktionerna är ca 34% av standardavvikelsen för y, vilket ses som ett bra värde för en prediktionsmodell.
+
+
+**Tolkning:**
+
+Modell A har lägst LOOCV-RMSE (3626) → bäst prediktion på kg-skalan, med gott justerat $R^2$ ($\approx 0.941$).
+
+Modell C har högre LOOCV-RMSE (4752) men högst justerat $R^2$ ($\approx 0.970$) → passar träningen bäst men predikterar sämre än A.
+
+Modell B är svagast (LOOCV-RMSE 9961; justerat $R^2 \approx 0.932$).
+
+Modell A för bäst här för prediktion.
+
+```{r, , results='hide'}
+fit_A_step <- MASS::stepAIC(fit_A, direction="both", trace=FALSE)
+fit_B_step <- MASS::stepAIC(fit_B, direction="both", trace=FALSE)
+fit_C_step <- MASS::stepAIC(fit_C, direction="both", trace=FALSE)
+
+summary(fit_A_step)
+summary(fit_C_step)
+```
+
+**LOOCV för step-modeller.**
+
+```{r}
+form_A_step <- formula(fit_A_step)
+form_B_step <- formula(fit_B_step)
+form_C_step <- formula(fit_C_step)
+
+fit_A_step2 <- lm(form_A_step, data=df)
+fit_B_step2 <- lm(form_B_step, data=df)
+fit_C_step2 <- lm(form_C_step, data=df)
+
+rmse_A_step <- loocv_rmse(form_A_step, df, response_is_log=TRUE,  use_smearing=TRUE)
+rmse_B_step <- loocv_rmse(form_B_step, df, response_is_log=TRUE,  use_smearing=TRUE)
+rmse_C_step <- loocv_rmse(form_C_step, df, response_is_log=FALSE, use_smearing=FALSE)
+
+adjr2_A_step <- summary(fit_A_step2)$adj.r.squared
+adjr2_B_step <- summary(fit_B_step2)$adj.r.squared
+adjr2_C_step <- summary(fit_C_step2)$adj.r.squared
+
+data.frame(
+  Model = c("A_step (LOG-RESP + LOG-AREAS, stepAIC)",
+            "B_step (LOG-RESP + PROP-AREAS, stepAIC)",
+            "C_step (RAW-RESP + RAW, stepAIC)"),
+  LOOCV_RMSE = c(rmse_A_step, rmse_B_step, rmse_C_step),
+  Adj_R2 = c(adjr2_A_step, adjr2_B_step, adjr2_C_step)
+)
+```
+
+* **A_step (log $y$, log-areor):** behåller $x2_{\text{pop_log}}(+)$, $x16_{\text{runoff}}(+)$, $x17_{\text{swine_log}}(+)$; mark: $x7(+)$, $x9(+)$, $x11(+)$, $x8(-)$; $x3$ svagt $(-)$. $R^2_{\text{adj}}\approx0.943$, LOOCV RMSE $\approx3671$ (bäst).
+
+* **B_step:** sämst prediktion, LOOCV RMSE $\approx5613$.
+
+* **C_step (rå $y$, råa areor):** många areor $(+)$; $x1(-)$ (”total vs delar”), $x2(-)$ efter kontroll; $x16(+)$, $x17(+)$, $x18(+)$; $x19(-)$. $R^2_{\text{adj}}\approx0.970$, LOOCV RMSE $\approx4654$.
+
+
+**A_step** är bäst för prediktion. Alltså denna modellen som log-transformerade respons variabel y och log transformerade x-arealer, befolkning och djur.
+Eftersom den har låg Modell A har lägst LOOCV-RMSE (3671), men inte lägsta eftersom Model A innan step-aic har lite högre. Men den är ett mycket mer förenklade modell som har mycket färre variabler och ett förenklade modell är att föredra. 
+
+
+**Summary för prediktionsmodel)
+```{r}
+summary(fit_A_step)
+```
+
+
+
+## 4.5 Slutlig diagnostik (vald modell)
+
+```{r, fig.width=7, fig.height=7}
+par(mfrow=c(2,2)); plot(fit_A_step2)
+```
+
+* **Residuals vs Fitted:** Residualerna ligger kring 0; mycket svag trend. Enstaka utstickare (t.ex. 16, 71) men inget systematiskt mönster.
+* **Q–Q:** Nära rät linje; små svansavvikelser (höger: 16, vänster: 71, 1) ⇒ normalitet acceptabel.
+* **Scale–Location:** Spridningen ungefär konstant; högst mild heteroskedasticitet runt medelnivåer.
+* **Residuals vs Leverage:** De flesta punkter har låg–måttlig leverage (<≈0.3); inga går över $0.5$. Cook’s $D<0.5$ ⇒ inga starkt inflytelserika observationer.
+
+LM-antagandena för A_step på $y_{\log}$ är i stort uppfyllda och LOOCV_RMSEP värden är stabila för den. Det finns inga inflytelserika observationer.  
+
+
+# 5 Resultat
+
+
+
+
+
+# 6 Diskussion
+
+
+# 7 Gruppmedlemmarnas arbetsinsats
+
+
+# A Appendix: Grafer, R-kod, output om modeller
+
