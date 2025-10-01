@@ -1,19 +1,16 @@
 ---
 title: "MT5021 — Övningsprojekt A8 – Tillförsel av kväve till Östersjön"
+author:
+  - "Mostafa Amini, Daniel Svedlund, Adam Carlén"
+date: "2025-10-01"
 output:
+  pdf_document:
+    latex_engine: xelatex
   html_document:
     toc: true
     toc_depth: 3
     df_print: paged
-  pdf_document: default
 ---
-
-
-
-**Projektnummer:** *[fyll i]*
-**Projektnamn:** Tillförsel av kväve (DIN) till Östersjön
-**Grupp:** Namn Efternamn, Namn Efternamn, Namn Efternamn
-**Oktober 2025**
 
 ```{r setup, include=FALSE}
 options(stringsAsFactors = FALSE)
@@ -211,18 +208,8 @@ Vi testade först alla variabler utan transformation (förutom $x_4$, $x_5$ och 
 
 Därefter valde vi att gå vidare med annat tillvägagångssätt: med log-transformerade responsvariabeln $y$ och några förklaringsvariabler samt använde andelar för delområdena $x_6$–$x_{15}$. Vi testade alla variabler med dessa transformationer (fortfarande med $x_4$, $x_5$ och $x_{12}$ exkluderade). Efter step-AIC i båda riktningar fick vi en reducerad modell med betydligt lägre VIF. Det justerade $R^2$ var $0.9705$ för den icke-transformerade modellen, vilket var högre än för den transformerade modellen som hade $R^2 = 0.9348$.
 
-Dessa variabler analyserade vi i vidare vår process: 
-$$
-\begin{aligned}
-y_{\log} \sim & \text{x1_area_km2_log} + \text{x2_population_log} \\
-& + \text{x3_urban_percent} + \text{x6}\ldots\text{x11} \\
-& \text{(proportioner, utom x12)} \\
-& + \text{x13} + \text{x14} + \text{x15} \\
-& + \text{x16_runoff} + \text{x17_swine_log} \\
-& + \text{x18_cattle_log} + \text{x19_treatment_percent} \\
-& + \text{x20_country}.
-\end{aligned}
-$$
+Dessa variabler analyserade vi i vidare vår process: y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent + x6...x11 (proportioner, utom x12) + x13 + x14 + x15 + x16_runoff + x17_swine_log + x18_cattle_log + x19_treatment_percent + x20_country.
+
 Sedan testade step-aic (båda riktningar) på modellen och fick vår reducerade förklaringsmodell. 
 
 ```{r, results='hide'}
@@ -504,14 +491,23 @@ Residuals vs Fitted visar att residualerna ligger kring 0 med en mycket svag tre
 Sammanfattningsvis är LM-antagandena för A_step på $y_{\log}$ i stort uppfyllda, LOOCV_RMSEP-värdena är stabila och det finns inga inflytelserika observationer.
 
 
-
 # 5 Resultat
+Det går att påvisa statistisk signifikans för kvantitativa samband mellan våra förklarande varaibler och DIN. Den modell som etableras i slutet av del 4.2 uppfyller antaganden nödvändiga för linjär regression, har ett högt justerat $R^2$-värde, acceptabla värden vid VIF test, och har låga p-värden för några av förklaringsvariablerna vilket visar på statistisk signifikans. Mer specifikt så påvisas ett positivt samband mellan DIN Befolkningen i området, avrinningen (mm/år , dvs liter per kvadratmeter och år) och antal svin inom området. Ett negativt samband etableras mellan DIN och andel av befolkningen som är ansluten till reningsverk. 
 
+Vidare för den valda modellen, vid genomfört anova test, så kan det inte påvisas att de förklarande variablerna skulle påverka DIN annorlunda i Sverige jämfört med reserande länder. Vi får därmed godta förklaringsmodellen som hyffsat gilltig för hela östersjö området. 
 
-
+Slutligen etableras i del 4.5 en prediktionsmodell som vi finner som den bästa bland de som testas med $RMSEP = 3671$ och ett gott relativt prediktionsfel ca $35%$ i balans med en hög förklaringsgrad justerad $R^2$ på ca $0.94$.
 
 
 # 6 Diskussion
+
+### Variabler att logaritmera(eller inte)
+I den itterativa proccess som leder oss fram till den slutliga förklarringsmodellen i del 4.1-4.2 så prövas många saker. En del förklaringsvariabler logaritmeras medan areor transformeras till areaandelar. Med så många förklarande variabler blir det otänkbart att prova alla kombinationer. Vägledande blir de individuella plottarna av förklaringvariabler mot responsvariabeln, samt diagnostiska plottar. Om det inte ser ut att uppfylla modellantagenden eller om de plottarna är svårtolkade så provas en transformation. 
+
+Även om flera, inte alla, plottar som involverar en area som förklaringsvariabel, ser bättre ut efter en transformation till areaandel, så är det tänkbart att istället logaritmera dem, vilket inte prövas.
+
+### Outliers
+I del 4.4-4.5 så förekommer för modell B och C några inlytelserika outliers. Det är tänkbart att prova att plocka bort dem och se om $RMSEP$-värdet förbättras utan en för stor förlust i justerad $R^2$
 
 
 # 7 Gruppmedlemmarnas arbetsinsats
