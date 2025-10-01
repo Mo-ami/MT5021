@@ -130,6 +130,9 @@ paste(sprintf("%s (%d)", names(table(df$x20_country)), as.integer(table(df$x20_c
 
 
 
+Vi omvandlade $x20$ till faktor för att utföra R funktioner. 
+
+
 
 ## Data & Förberedelser
 
@@ -163,11 +166,15 @@ hist(df$y, breaks="FD", main="Histogram of y (DIN, kg)", xlab="y (kg)")
 * Boxplot (y per land): Polen högst, Ryssland/Latvia mellanhöga, Sverige och Finland generellt låga; stor inomlands-variation och sned fördelning.
 * Histogram: y är kraftigt högerskev med några extrema toppar → log-transform av y är motiverad.
 
+* Eftersom alla punkterna är till vänster i plottarna motiveras log-trasnform för att få mer symmetrisk fördelning. 
 
 # 4 Statistisk modellering
 
 **Kommentar om kollinearitet.**
 $x3+x4=100$ (perfekt kollinearitet). $x5$ är härledd ur $x2$ och $x1$. Summan av markandelsvariabler $x6$–$x15$ är $x1$, vilket ger nära-perfekt kollinearitet. Vi måste därför exkludera en, t.ex $x_12$, och exkluderar $x4$, $x5$ och $x12$ enligt anvisning.
+
+Vi börjar med att transformera responssvariabeln $y$ och $x_1$, $x_2$, $x_17$ och $x_18$. På variablarna $x6-x15$ tar vi prportionerna för den observationen, alltså delad med $x1$. Vi testade ett ny scatterplots, histogram och lådagram. 
+
 
 ## 4.1 Grundläggande grafer
 
@@ -194,20 +201,46 @@ boxplot(y_log ~ x20_country, data=df, main="y_log by country", xlab="Country", y
 hist(df$y_log, breaks="FD", main="Histogram of y_log (log-transformed DIN)", xlab="y_log")
 ```
 
+
+
+* Starka positiva samband med `y_log`: `x1_area_km2_log`, `x2_population_log`, `x5_population_density_km2`, `x11_agricultural_land_prop`, `x15_artificial_surfaces_prop`, `x17_swine_log`, `x18_cattle_log`, samt `x9_shrubland_prop` (delvis av få stora fall).
+
+* Måttligt/svagt positiva: `x3_urban_percent`, `x6_deciduous_forest_prop`, `x13_inland_water_prop`.
+
+* Negativa: `x4_rural_percent` (spegel av `x3`), `x7_coniferous_forest_prop`, `x8_mixed_forest_prop`, `x19_treatment_percent`.
+
+* Nära platta eller svagt negativa: `x10_wetland_prop`, `x14_snow_ice_prop`, `x16_runoff` (ungefär kring noll).
+
+* Boxplot (loggad respons, rätt version): Länder skiljer sig tydligt. `POLAND` har högst nivåer och liten spridning; `RUSSIA` och `LITHUANIA` mycket höga (Litauen en enstaka hög obs.); `LATVIA` också högt. `ESTONIA` och gruppen `MISSING` ligger mitt emellan. `FINLAND` och särskilt `SWEDEN` är lägst; Sverige har störst spridning bland de låga nivåerna.
+
+* Histogram av `y_log`: ungefär symmetriskt och klockformat (center cirka 7–8), vilket visar att log-transformen minskar skevhet och gör sambanden mer linjära och variansen jämnare.
+
 **Kort tolkning (log-skala).** Starka samband för $x1_{\log},x2_{\log},x11_{%},x15_{%},x17_{\log},x18_{\log}$; negativt för $x19$; länder skiljer sig i nivå.
 
-## 4.2 Fråga 1 — Samband i hela Östersjöområdet (log-respons)
 
-**Full modell:**
+Log-transformationen gör data passar bättre på linjär regression. 
+
+
+## 4.2 Samband i hela Östersjöområdet (log-respons)
+Vi testade med alla variabler utan transformationen (förutom $x4$, $x5$ och $x12$). Vi testade VIF på modellen och såg väldigt höga värde på många variabler. Det visar av variablerna är kollineaära. Vi testade step-aic (båda riktning) på denna modellen och den fortfarande hade höga VIF värde. 
+
+Vi ett annat tillvägagångsätt genom att logaritmera responsonsvariabeln och några av förklaringsvariablerna och ta andel på del områderna ($x6-x15$). Vi testar med  alla variabler med transformationen (förutom $x4$, $x5$ och $x12$). Efter detta gjorde step-aic (båda riktning) och fick ett reducerat med mycket lägre VIF. 
+
+Justerade $R^2 = 0.9705$ för icke-transformerade modellen var högre än den transformerade some hade $R^2 = 0.9348$. 
+
 $$
 \begin{aligned}
-y_{\log} \sim&\ x1_{\log}+x2_{\log}+x3+
-(x6\text{–}x11,x13,x14,x15)_{%}\ (\text{utan }x12)\
-&+,x16+x17_{\log}+x18_{\log}+x19+\text{land}.
+y_{\log} \sim & \text{x1_area_km2_log} + \text{x2_population_log} \\
+& + \text{x3_urban_percent} + \text{x6}\ldots\text{x11} \\
+& \text{(proportioner, utom x12)} \\
+& + \text{x13} + \text{x14} + \text{x15} \\
+& + \text{x16_runoff} + \text{x17_swine_log} \\
+& + \text{x18_cattle_log} + \text{x19_treatment_percent} \\
+& + \text{x20_country}.
 \end{aligned}
 $$
 
-```{r}
+```{r, results='hide'}
 form_full_log <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
   x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
   x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
@@ -224,9 +257,24 @@ fit_step_log <- MASS::stepAIC(fit_full_log, direction="both", trace=FALSE)
 summary(fit_step_log)
 ```
 
+* **Full modell:** Starka och signifikanta samband för
+  `x2_population_log` **(+),** `x16_runoff` **(+),** samt `x19_treatment_percent` **(–)**.
+  `x17_swine_log` är svagt **(+)**. Övriga markanvändnings- och djurvariabler (inkl. `x18_cattle_log`) saknar tydlig effekt.
+  **Land:** `SWEDEN` har **lägre nivå** än referenslandet Estland (p < 0.01).
+  Modellens förklaringsgrad är hög (Adj. (R^2 \approx 0.93)).
+
+* **Stegvis AIC:** Behåller i huvudsak samma kärnsignaler och förenklar modellen:
+  `x2_population_log` **(+),** `x16_runoff` **(+),** `x17_swine_log` **(+),** `x19_treatment_percent` **(–)**.
+  Dessutom svagare markanvändningssamband: `x7_coniferous_forest_prop` **(+),** `x6_deciduous_forest_prop` **(+, gräns),** `x9_shrubland_prop` **(+, gräns),** samt `x3_urban_percent` **(–, gräns)**.
+  **Land:** `SWEDEN` kvarstår **lägre**. Anpassningen är i stort oförändrad (Adj. (R^2 \approx 0.935)).
+
+* I hela Östersjöområdet ökar DIN främst med **befolkning**, **avrinning** och **svin**; **hög anslutning till reningsverk minskar** DIN. Skogs-/buskandeler kan bidra svagt positivt. **Sverige har lägre basnivå** än övriga länder givet övriga faktorer.
+
+
+
 ### VIF-kontroll (numeriska prediktorer)
 
-```{r}
+```{r, results='hide'}
 vif_numeric <- function(model, data){
   tt <- terms(model)
   labs <- attr(tt, "term.labels")
@@ -242,16 +290,36 @@ vif_numeric <- function(model, data){
 }
 vif_full_log <- vif_numeric(fit_full_log, df)
 vif_step_log <- vif_numeric(fit_step_log, df)
-vif_full_log; vif_step_log
+vif_full_log
+```
+
+```{r}
+vif_step_log
 ```
 
 ### Diagnostik (log- resp. rå-respons)
+Vi testade med att ta fram diagnostikplottarna, 
 
 ```{r, fig.width=7, fig.height=7}
 par(mfrow=c(2,2)); plot(fit_full_log)
 ```
 
-```{r}
+
+**Full modell:** Starka och signifikanta samband för
+  `x2_population_log` **(+),** `x16_runoff` **(+),** samt `x19_treatment_percent` **(–)**.
+  `x17_swine_log` är svagt **(+)**. Övriga markanvändnings- och djurvariabler (inkl. `x18_cattle_log`) saknar tydlig effekt.
+  **Land:** `SWEDEN` har **lägre nivå** än referensländerna (p < 0.01).
+  Modellens förklaringsgrad är hög (Adj. (R^2 \approx 0.93)).
+
+**Stegvis AIC:** Behåller i huvudsak samma kärnsignaler och förenklar modellen:
+  `x2_population_log` **(+),** `x16_runoff` **(+),** `x17_swine_log` **(+),** `x19_treatment_percent` **(–)**.
+  Dessutom svagare markanvändningssamband: `x7_coniferous_forest_prop` **(+),** `x6_deciduous_forest_prop` **(+, gräns),** `x9_shrubland_prop` **(+, gräns),** samt `x3_urban_percent` **(–, gräns)**.
+  **Land:** `SWEDEN` kvarstår **lägre**. Anpassningen är i stort oförändrad (Adj. (R^2 \approx 0.935)).
+
+* I hela Östersjöområdet ökar DIN främst med **befolkning**, **avrinning** och **svin**; **hög anslutning till reningsverk minskar** DIN. Skogs-/buskandeler kan bidra svagt positivt. **Sverige har lägre basnivå** än övriga länder givet övriga faktorer.
+
+
+```{r, results='hide'}
 form_full_raw <- y ~ x1_area_km2 + x2_population + x3_urban_percent +
   x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
   x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
@@ -265,13 +333,25 @@ summary(fit_full_raw)
 par(mfrow=c(2,2)); plot(fit_full_raw)
 ```
 
+**Diagnostik (rå-respons) **
+
+* **Residuals vs Fitted:** Tydlig kurvatur och kraftig “funnel” → bruten linearitet och stark heteroskedasticitet. Ett par extrema punkter (t.ex. 11, 23, 10) sticker ut.
+* **Q–Q:** Klara avvikelser i båda svansar (särskilt övre; 11, 23). Normalantagandet håller dåligt.
+* **Scale–Location:** Variansen ökar med anpassat värde → tydlig heteroskedasticitet.
+* **Residuals vs Leverage:** Några observationer med mycket hög **leverage** nära/över Cook’s (D\approx1) (punkterna längst till höger) → potentiellt starkt inflytande på koefficienterna.
+
+Den linjära modellen på rå skala uppfyller inte antagandena (nonlinearitet, icke-konstant varians, inflytelserika punkter). En log-respons (som i huvudanalysen) är motiverad.
+
+Även om den otransformerade modellen har bättre justerade $R^2$ så kan man inte anta linjära antagande på modellen och använda den. Däremot är den transformerade modellen fyller kraven på linjär regression mycket och är mer relevant. 
+
 *Log-modellen uppfyller antagandena bättre än rå-modellen.*
 
-## 4.3 Fråga 2 — Samma variabler i Sverige som i grannländer?
+## 4.3 Samma variabler i Sverige som i grannländer?
+Vi skapade ett kategorisk variabel "Sweden group" och kategoriserade alla observation om de är Sverige eller inte. Vi skapade ett linjär regression modell på denna alla variabeln och sweden group förutom själva landkategori. Vi körde step-aic på denna variabeln för att få ett mer vald selektion av variabler att köra ett interaktion med. Vi körde anova interaktion test för denna vald del av variabler. Den valda variablerna blev y_log, x1_area_km2_log + x2_population_log + x3_urban_percent + x9_shrubland_prop + x16_runoff + x18_cattle_log + x19_treatment_percent med denna nya variabeln. 
 
 **Test av interaktioner och huvudeffekt (Sweden vs Non-Sweden).**
 
-```{r}
+```{r }
 form_no_country <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
   x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
   x9_shrubland_prop + x10_wetland_prop + x11_agricultural_land_prop +
@@ -291,32 +371,65 @@ fit_step_interact <- lm(form_step_interact, data=df)
 anova(fit_step_sweden, fit_step_interact)   # interaktioner
 anova(fit_step_no_country, fit_step_sweden) # huvudeffekt
 ```
+Interaktioner (p = 0,523). Det finns inga bevis för att Sverige reagerar olika på befolkning, avrinning, jordbruk etc. Vi testar också huvudeffekten.
+
+
+Huvudeffekt (p = 0,0001)
+Mycket signifikant. Sverige har en annan grundnivå (intercept) för DIN än övriga länder, även efter justering för de 7 variablerna.
+
+RSS-värden:
+
+Utan sweden_group: RSS = 25,15
+Med sweden_group: RSS = 21,56
+Minskning: 3,59 (14 % mindre oförklarad variation)
+
+Vi kan inte förkasta noll hypotesen att Sverige har samma lutning för variablerna som i granländerna. I andra ord vi kan att Sverige påverkas variabler jämfört med andra länder.  Men Sverige har systematiskt lägre DIN-nivåer överlag (annat intercept).
+
+
+Hypoteserna om Sweden-group och interaktioner bara är giltiga om just den modellen uppfyller LM-antagandena. 
 
 ```{r, fig.width=7, fig.height=7}
 par(mfrow=c(2,2)); plot(fit_step_sweden)
 ```
 
+**Diagnostik (vald log-modell)**
+Residualerna är centrerade kring noll utan tydlig struktur; endast en svag trend anas → linjäritet okej.
+Q–Q-plotten ligger nära diagonal med små svansavvikelser → normalitetsantagandet rimligt.
+Scale–Location visar nästan platt loess; något större spridning runt mellannivåer (≈7–8 i fitted) men ingen tydlig funnel → högst mild heteroskedasticitet.
+Residualer vs leverage: de flesta punkter har låg–måttlig leverage (<≈0.20) och alla ligger inom Cook’s (D<0.5) → inga klart inflytelserika observationer.
+Modellantagandena är i stort uppfyllda; eventuella små svansar/variansskillnader bedöms inte påverka huvudslutsatserna.
+
+
 **Full modell med alla prediktorer:**
 
-```{r}
-form_sweden_full <- update(form_no_country, . ~ . + sweden_group)
-fit_sweden_full <- lm(form_sweden_full, data=df)
-form_sweden_interact_full <- update(form_no_country, . ~ (.) * sweden_group)
-fit_sweden_interact_full <- lm(form_sweden_interact_full, data=df)
+Vi testade också med anova interaktioner med hela modellen utan att välja med step-aic och fick p = 0,556)
 
-anova(fit_sweden_full, fit_sweden_interact_full) # interaktioner
-anova(fit_no_country, fit_sweden_full)           # huvudeffekt
-```
+**Inte signifikant.** Samma slutsats som för utvalda variabler: inga bevis för att Sverige reagerar annorlunda på någon av de 16 prediktorerna.
 
-```{r, fig.width=7, fig.height=7}
-par(mfrow=c(2,2)); plot(fit_sweden_interact_full)
-```
+Diagnostikplotterna såg bra ut också på denna fulla modellen. 
 
-*Interaktioner ej signifikanta; huvudeffekt för Sverige signifikant negativ på log-skalan.*
 
-## 4.4 Fråga 3 — Prediktion (LOOCV) och Duans smearing
+Vi testade också med den selektion av variablerna från för denna valda förklaringsmodell från 4.2, det visade inte några låg p-värde och kan inte förkasta variabeln. 
 
-**Hjälpfunktioner.**
+
+## 4.4 Prediktion (LOOCV) och Duans smearing
+Vi vill nu se om det går att prediktera DIN utifrån förklaringsvariablerna. Här utvärderar vi modellernas **prediktiva precision** med **Leave-One-Out Cross-Validation (LOOCV)**, där vi använder **brute force**: för varje observation $i$ passas modellen om utan $i$, $i$ predikteras på rätt skala, felet sparas, och detta upprepas för alla $n$. För log-responsmodeller **backtransformeras prognoserna med Duan’s smearing**. När man prediktera nya värde med ett modell som man har log-transformerade så finns ett fel med baktransformation, man behöver använda något korrigering i detta Duan's smearing. Vi måste använda **brute force** istället hat matrisen för log-transformerade modellen eftersom vi behöver beräkna felkorrigering vid varje fall. 
+
+Vi jämför tre modellfamiljer och deras stepAIC-varianter:
+(A) log-respons + log-arealer, (B) log-respons + arealandelar (proportioner), (C) rå respons + råa variabler. **Urvalskriteriet är lägst LOOCV-RMSE på kg-skalan**; justerat $R^2$ rapporteras som komplement. Modellen med lägst LOOCV-RMSE används för slutlig diagnostik och redovisning av prediktioner.
+
+Litauen tas bort i LOOCV eftersom landet har endast en observation, vilket gör att formeln inte kan beräknas när landfaktorn saknas i vissa träningsfolds.
+
+
+Vi använder Duans smearing för **log-responsmodellerna** (`A`, `B`, `A_step`, `B_mapped`). Mer specifikt backtransformeras varje utelämnad prediktion som:
+
+$$
+\hat{y} = \exp(\hat{\eta}) \cdot \underbrace{\mathrm{mean}!\big(\exp(e)\big)}_{\text{smearingfaktor}} - 1,
+$$
+
+där $\hat{\eta}$ är den predikterade $\log(1+y)$ och $e$ är residualerna från den aktuella träningspassning.
+
+
 
 ```{r}
 smearing_factor <- function(fit) mean(exp(residuals(fit)))
@@ -379,10 +492,17 @@ data.frame(
   Adj_R2 = c(adjr2_A, adjr2_B, adjr2_C)
 )
 ```
+**Tolkning:**
 
-**Stegvis AIC inom familjerna.**
+Modell A har lägst LOOCV-RMSE (3626) → bäst prediktion på kg-skalan, med gott justerat $R^2$ ($\approx 0.941$).
 
-```{r}
+Modell C har högre LOOCV-RMSE (4752) men högst justerat $R^2$ ($\approx 0.970$) → passar träningen bäst men predikterar sämre än A.
+
+Modell B är svagast (LOOCV-RMSE 9961; justerat $R^2 \approx 0.932$).
+
+Modell A för bäst här för prediktion.
+
+```{r, , results='hide'}
 fit_A_step <- MASS::stepAIC(fit_A, direction="both", trace=FALSE)
 fit_B_step <- MASS::stepAIC(fit_B, direction="both", trace=FALSE)
 fit_C_step <- MASS::stepAIC(fit_C, direction="both", trace=FALSE)
@@ -419,28 +539,49 @@ data.frame(
 )
 ```
 
-## 4.5 Slutlig diagnostik (vald modell)
+* **A_step (log $y$, log-areor):** behåller $x2_{\text{pop_log}}(+)$, $x16_{\text{runoff}}(+)$, $x17_{\text{swine_log}}(+)$; mark: $x7(+)$, $x9(+)$, $x11(+)$, $x8(-)$; $x3$ svagt $(-)$. $R^2_{\text{adj}}\approx0.943$, LOOCV RMSE $\approx3671$ (bäst).
 
-*Vald modell:* den med lägst LOOCV-RMSE (A_step).
+* **B_step:** sämst prediktion, LOOCV RMSE $\approx5613$.
+
+* **C_step (rå $y$, råa areor):** många areor $(+)$; $x1(-)$ (”total vs delar”), $x2(-)$ efter kontroll; $x16(+)$, $x17(+)$, $x18(+)$; $x19(-)$. $R^2_{\text{adj}}\approx0.970$, LOOCV RMSE $\approx4654$.
+
+
+**A_step** är bäst för prediktion. Alltså denna modellen som log-transformerade respons variabel y och log transformerade x-arealer, befolkning och djur.
+Eftersom den har låg Modell A har lägst LOOCV-RMSE (3671), men inte lägsta eftersom Model A innan step-aic har lite högre. Men den är ett mycket mer förenklade modell som har mycket färre variabler och ett förenklade modell är att föredra. 
+
+
+**Summary för prediktionsmodel)
+```{r}
+summary(fit_A_step)
+```
+
+
+
+## 4.5 Slutlig diagnostik (vald modell)
 
 ```{r, fig.width=7, fig.height=7}
 par(mfrow=c(2,2)); plot(fit_A_step2)
 ```
 
+* **Residuals vs Fitted:** Residualerna ligger kring 0; mycket svag trend. Enstaka utstickare (t.ex. 16, 71) men inget systematiskt mönster.
+* **Q–Q:** Nära rät linje; små svansavvikelser (höger: 16, vänster: 71, 1) ⇒ normalitet acceptabel.
+* **Scale–Location:** Spridningen ungefär konstant; högst mild heteroskedasticitet runt medelnivåer.
+* **Residuals vs Leverage:** De flesta punkter har låg–måttlig leverage (<≈0.3); inga går över $0.5$. Cook’s $D<0.5$ ⇒ inga starkt inflytelserika observationer.
+
+LM-antagandena för A_step på $y_{\log}$ är i stort uppfyllda och LOOCV_RMSEP värden är stabila för den. Det finns inga inflytelserika observationer.  
+
+
 # 5 Resultat
 
-* **Hela området (log-respons):** $x2_{\log}$ (befolkning), $x16$ (avrinning) och $x17_{\log}$ (svin) positiva; $x19$ (reningsanslutning) negativ. Svaga bidrag från vissa markvariabler.
-* **Landjämförelse:** Ingen evidens för olika lutningar mellan Sverige och övriga (interaktioner ej signifikanta). **Sverige** har **lägre intercept** (signifikant).
-* **Prediktion (LOOCV):** Bäst RMSE för **A_step** (log $y$, log-areor) med backtransformering via Duans smearing.
+
+
+
 
 # 6 Diskussion
 
-Markandelsvariabler är starkt kollineära; det påverkar tolkning av enskilda koefficienter i fulla modeller. Log-transform av $y$ förbättrar antaganden markant jämfört med rå skala. Enstaka observationer har hög leverage men påverkar inte slutsatserna i den valda modellen. Resultaten gäller givet datakvalitet och valda variabeltransformationer.
 
 # 7 Gruppmedlemmarnas arbetsinsats
 
-Kort arbetsdelning: A ansvarade för dataförberedelser och grafer, B för modellering och selektion, C för CV och rapportstruktur.
 
 # A Appendix: Grafer, R-kod, output om modeller
 
-Kodceller är dolda enligt instruktion. Samtliga diagnostikplottar och sammanfattningar av modeller återfinns i respektive avsnitt ovan. Formler för Duans smearing och LOOCV finns i 4.4.
