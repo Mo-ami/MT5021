@@ -108,10 +108,12 @@ Målet är att modellera och jämföra hur DIN (dissolved inorganic nitrogen) i 
 
 **Källa och struktur.** Datasetet `baltic_DIN.csv` består av avrinningsområden med variabler $x_1,\dots,x_{20}$ och respons $y$ (DIN, kg). Vi omvandlar areor från ha till km², bildar loggar och andelar enligt uppgift. Datakontroller (andelar, täthet, arealsummor) utföll väl utan avvikelser av praktisk betydelse.
 
-**Länder och antal.** Datasetet omfattar $r$ `nlevels(df$x20_country)` länder:
-`
-paste(sprintf("%s (%d)", names(table(df$x20_country)), as.integer(table(df$x20_country))), collapse = ", "
-`
+**Länder och antal.** Datasetet omfattar 7 länder och ett "MISSING" kategori:
+```{r}
+paste(sprintf("%s (%d)", names(table(df$x20_country)), as.integer(table(df$x20_country))), collapse = ", ")
+```
+
+Vi ser att Litaun har en observation och Polen och Ryssland har endast 2. 
 
 **Variabler (urval).**
 
@@ -159,26 +161,19 @@ hist(df$y, breaks="FD", main="Histogram of y (DIN, kg)", xlab="y (kg)")
 ```
 
 
-* Spridningsdiagram (y mot x1–x19): tydligt positivt samband för x1 area, x2 population, x11 jordbruksmark, x15 artificiella ytor, x17 svin och x18 nöt. x9 buskmark ser positiv ut men drivs av ett fåtal extrema värden; x13 inlandsvatten svagt–måttligt positivt.
-* Svagt/oklart samband: x3 urban andel, x5 täthet, skogstyperna x6–x8, x10 våtmark.
-* Negativ lutning: x12 häll/berg, x14 snö/is och x19 reningsanslutning. x16 avrinning nära noll/svagt negativ i råa data.
-* Heteroskedasticitet och outliers: variationen i y ökar med nivån och flera paneler påverkas av några mycket stora vattendrag.
-* Boxplot (y per land): Polen högst, Ryssland/Latvia mellanhöga, Sverige och Finland generellt låga; stor inomlands-variation och sned fördelning.
-* Histogram: y är kraftigt högerskev med några extrema toppar → log-transform av y är motiverad.
+#### Tolkning av scatterplot 
 
-* Eftersom alla punkterna är till vänster i plottarna motiveras log-trasnform för att få mer symmetrisk fördelning. 
+Spridningsdiagrammen ($y$ mot $x_1$–$x_{19}$) visar tydligt positiva samband för $x_1$ (area), $x_2$ (befolkning), $x_{11}$ (jordbruksmark), $x_{15}$ (artificiella ytor), $x_{17}$ (svin) och $x_{18}$ (nöt); $x_9$ (buskmark) ser också positiv ut men effekten drivs av några få extrema värden, och $x_{13}$ (inlandsvatten) är svagt–måttligt positiv. Sambanden är svaga eller oklara för $x_3$ (urban andel), $x_5$ (täthet), skogstyperna $x_6$–$x_8$ samt $x_{10}$ (våtmark). Negativ lutning ses för $x_{12}$ (häll/berg), $x_{14}$ (snö/is) och $x_{19}$ (reningsanslutning), medan $x_{16}$ (avrinning) ligger nära noll eller svagt negativ i råa data. Variationen i $y$ ökar med nivån och flera paneler påverkas av några mycket stora vattendrag (heteroskedasticitet och outliers). Boxplottar av $y$ per land visar Polen högst, Ryssland och Lettland mellanhöga samt Sverige och Finland generellt låga nivåer, med stor inomlandsvariation och sned fördelning. Histogrammet visar att $y$ är kraftigt högerskev med några extrema toppar, vilket motiverar en $\log$-transform av $y$; dessutom ligger många punkter långt till vänster i plottarna, vilket ytterligare talar för $\log$-transform för att få en mer symmetrisk fördelning.
+
 
 # 4 Statistisk modellering
 
-**Kommentar om kollinearitet.**
-$x3+x4=100$ (perfekt kollinearitet). $x5$ är härledd ur $x2$ och $x1$. Summan av markandelsvariabler $x6$–$x15$ är $x1$, vilket ger nära-perfekt kollinearitet. Vi måste därför exkludera en, t.ex $x_12$, och exkluderar $x4$, $x5$ och $x12$ enligt anvisning.
-
-Vi börjar med att transformera responssvariabeln $y$ och $x_1$, $x_2$, $x_17$ och $x_18$. På variablarna $x6-x15$ tar vi prportionerna för den observationen, alltså delad med $x1$. Vi testade ett ny scatterplots, histogram och lådagram. 
+$x_3 + x_4 = 100$ (perfekt kollinearitet), $x_5$ är härledd ur $x_2$ och $x_1$, och summan av markandelsvariablerna $x_6$–$x_{15}$ är $x_1$, vilket ger nära perfekt kollinearitet. Därför behöver vi utesluta minst en variabel (t.ex. $x_{12}$) och vi exkluderar $x_4$, $x_5$ och $x_{12}$ när vi skapar linjära modeller. Vi börjar med att transformera responssvariabeln $y$ samt $x_1$, $x_2$, $x_{17}$ och $x_{18}$. För variablerna $x_6$–$x_{15}$ använder vi proportionerna per observation, det vill säga värdet delat med $x_1$. Efter detta tog vi fram nya spridningsdiagram, histogram och boxplottar för att kontrollera effekterna.
 
 
 ## 4.1 Grundläggande grafer
 
-**Kort tolkning.** Positiva samband för area, befolkning, jordbruk, artificiella ytor, svin och nöt; negativt för reningsanslutning. $y$ är högerskev $\rightarrow$ log-transform.
+Vi ser positiva samband för area, befolkning, jordbruk, artificiella ytor, svin och nöt, och ett negativt samband för reningsanslutning. $y$ är högerskev, därför använder vi en log-transform.
 
 ```{r, fig.width=7, fig.height=7}
 vars_trans <- c("x1_area_km2_log","x2_population_log","x3_urban_percent","x4_rural_percent","x5_population_density_km2",
@@ -201,33 +196,21 @@ boxplot(y_log ~ x20_country, data=df, main="y_log by country", xlab="Country", y
 hist(df$y_log, breaks="FD", main="Histogram of y_log (log-transformed DIN)", xlab="y_log")
 ```
 
+Med $y_{\log}$ som respons ser vi starka positiva samband för x1_area_km2_log, x2_population_log, x5_population_density_km2, x11_agricultural_land_prop, x15_artificial_surfaces_prop, x17_swine_log och x18_cattle_log; även x9_shrubland_prop är positiv men delvis driven av några få stora fall. Sambanden är måttligt till svagt positiva för x3_urban_percent, x6_deciduous_forest_prop och x13_inland_water_prop. Negativa samband ses för x4_rural_percent (spegel av x3), x7_coniferous_forest_prop, x8_mixed_forest_prop och x19_treatment_percent. Nära platta eller svagt negativa samband gäller för x10_wetland_prop, x14_snow_ice_prop samt x16_runoff, som ligger ungefär kring noll. Många av plotten ny visar tydliga linjära samband. 
 
+Boxplottar av den loggade responsen visar tydliga länderskillnader: POLAND har högst nivåer och liten spridning; RUSSIA och LITHUANIA ligger mycket högt (Litauen har en enstaka hög observation); LATVIA är också högt. ESTONIA och gruppen MISSING ligger mitt emellan, medan FINLAND och särskilt SWEDEN är lägst; Sverige har dessutom störst spridning bland de låga nivåerna.
 
-* Starka positiva samband med `y_log`: `x1_area_km2_log`, `x2_population_log`, `x5_population_density_km2`, `x11_agricultural_land_prop`, `x15_artificial_surfaces_prop`, `x17_swine_log`, `x18_cattle_log`, samt `x9_shrubland_prop` (delvis av få stora fall).
+Histogrammet av $y_{\log}$ är ungefär symmetriskt och klockformat, centrerat kring 7–8, vilket visar att log-transformen minskar skevhet, gör sambanden mer linjära och variansen jämnare. 
 
-* Måttligt/svagt positiva: `x3_urban_percent`, `x6_deciduous_forest_prop`, `x13_inland_water_prop`.
-
-* Negativa: `x4_rural_percent` (spegel av `x3`), `x7_coniferous_forest_prop`, `x8_mixed_forest_prop`, `x19_treatment_percent`.
-
-* Nära platta eller svagt negativa: `x10_wetland_prop`, `x14_snow_ice_prop`, `x16_runoff` (ungefär kring noll).
-
-* Boxplot (loggad respons, rätt version): Länder skiljer sig tydligt. `POLAND` har högst nivåer och liten spridning; `RUSSIA` och `LITHUANIA` mycket höga (Litauen en enstaka hög obs.); `LATVIA` också högt. `ESTONIA` och gruppen `MISSING` ligger mitt emellan. `FINLAND` och särskilt `SWEDEN` är lägst; Sverige har störst spridning bland de låga nivåerna.
-
-* Histogram av `y_log`: ungefär symmetriskt och klockformat (center cirka 7–8), vilket visar att log-transformen minskar skevhet och gör sambanden mer linjära och variansen jämnare.
-
-**Kort tolkning (log-skala).** Starka samband för $x1_{\log},x2_{\log},x11_{%},x15_{%},x17_{\log},x18_{\log}$; negativt för $x19$; länder skiljer sig i nivå.
-
-
-Log-transformationen gör data passar bättre på linjär regression. 
+Log-transformeringen gör därför att data passar bättre för linjär regression.
 
 
 ## 4.2 Samband i hela Östersjöområdet (log-respons)
-Vi testade med alla variabler utan transformationen (förutom $x4$, $x5$ och $x12$). Vi testade VIF på modellen och såg väldigt höga värde på många variabler. Det visar av variablerna är kollineaära. Vi testade step-aic (båda riktning) på denna modellen och den fortfarande hade höga VIF värde. 
+Vi testade först alla variabler utan transformation (förutom $x_4$, $x_5$ och $x_{12}$). VIF-värdena var mycket höga för många variabler, vilket visar att variablerna är kollineära. Vi körde step-AIC i båda riktningar på denna modell, men VIF-värdena förblev höga.
 
-Vi ett annat tillvägagångsätt genom att logaritmera responsonsvariabeln och några av förklaringsvariablerna och ta andel på del områderna ($x6-x15$). Vi testar med  alla variabler med transformationen (förutom $x4$, $x5$ och $x12$). Efter detta gjorde step-aic (båda riktning) och fick ett reducerat med mycket lägre VIF. 
+Därefter valde vi att gå vidare med annat tillvägagångssätt: med log-transformerade responsvariabeln $y$ och några förklaringsvariabler samt använde andelar för delområdena $x_6$–$x_{15}$. Vi testade alla variabler med dessa transformationer (fortfarande med $x_4$, $x_5$ och $x_{12}$ exkluderade). Efter step-AIC i båda riktningar fick vi en reducerad modell med betydligt lägre VIF. Det justerade $R^2$ var $0.9705$ för den icke-transformerade modellen, vilket var högre än för den transformerade modellen som hade $R^2 = 0.9348$.
 
-Justerade $R^2 = 0.9705$ för icke-transformerade modellen var högre än den transformerade some hade $R^2 = 0.9348$. 
-
+Dessa Variabler var i vår modell 
 $$
 \begin{aligned}
 y_{\log} \sim & \text{x1_area_km2_log} + \text{x2_population_log} \\
@@ -239,7 +222,7 @@ y_{\log} \sim & \text{x1_area_km2_log} + \text{x2_population_log} \\
 & + \text{x20_country}.
 \end{aligned}
 $$
-
+Sedan testade step-aic på modellen och fick vår reducerade förklaringsmodell. 
 ```{r, results='hide'}
 form_full_log <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
   x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
