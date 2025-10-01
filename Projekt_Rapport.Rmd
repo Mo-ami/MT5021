@@ -232,6 +232,7 @@ form_full_log <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent 
 fit_full_log <- lm(form_full_log, data=df)
 summary(fit_full_log)
 ```
+I den fulla modellen ser vi starka och signifikanta samband för x2_population_log (+), x16_runoff (+) och x19_treatment_percent (–). x17_swine_log är svagt positiv. Övriga markanvändnings- och djurvariabler, inklusive x18_cattle_log, visar ingen tydlig effekt. På landsnivå ligger SWEDEN lägre än referenslandet Estland ($p<0.01$). Modellens förklaringsgrad är hög med justerat $R^2 \approx 0.93$.
 
 **Stegvis AIC model (båda riktningar).**
 
@@ -240,23 +241,15 @@ fit_step_log <- MASS::stepAIC(fit_full_log, direction="both", trace=FALSE)
 summary(fit_step_log)
 ```
 
-* **Full modell:** Starka och signifikanta samband för
-  `x2_population_log` **(+),** `x16_runoff` **(+),** samt `x19_treatment_percent` **(–)**.
-  `x17_swine_log` är svagt **(+)**. Övriga markanvändnings- och djurvariabler (inkl. `x18_cattle_log`) saknar tydlig effekt.
-  **Land:** `SWEDEN` har **lägre nivå** än referenslandet Estland (p < 0.01).
-  Modellens förklaringsgrad är hög (Adj. (R^2 \approx 0.93)).
+Med stegvis AIC kvarstår i huvudsak samma kärnsignaler och modellen förenklas: x2_population_log (+), x16_runoff (+), x17_swine_log (+) och x19_treatment_percent (–). Därutöver framträder svagare markanvändningssamband: x7_coniferous_forest_prop (+), x6_deciduous_forest_prop (positivt, på gränsen), x9_shrubland_prop (positivt, på gränsen) samt x3_urban_percent (negativt, på gränsen). SWEDEN förblir lägre, och anpassningen är i stort sett oförändrad (justerat $R^2 \approx 0.935$).
 
-* **Stegvis AIC:** Behåller i huvudsak samma kärnsignaler och förenklar modellen:
-  `x2_population_log` **(+),** `x16_runoff` **(+),** `x17_swine_log` **(+),** `x19_treatment_percent` **(–)**.
-  Dessutom svagare markanvändningssamband: `x7_coniferous_forest_prop` **(+),** `x6_deciduous_forest_prop` **(+, gräns),** `x9_shrubland_prop` **(+, gräns),** samt `x3_urban_percent` **(–, gräns)**.
-  **Land:** `SWEDEN` kvarstår **lägre**. Anpassningen är i stort oförändrad (Adj. (R^2 \approx 0.935)).
+Sammanfattningsvis ökar DIN främst med befolkning, avrinning och antal svin, medan hög anslutning till reningsverk minskar DIN. Skogs- och buskandeler kan bidra svagt positivt. Sverige har en lägre basnivå än övriga länder givet övriga faktorer.
 
-* I hela Östersjöområdet ökar DIN främst med **befolkning**, **avrinning** och **svin**; **hög anslutning till reningsverk minskar** DIN. Skogs-/buskandeler kan bidra svagt positivt. **Sverige har lägre basnivå** än övriga länder givet övriga faktorer.
+### VIF-kontroll 
+Vi testade VIF på den modellen som reducerades av step-aic. Samtidigt som vi testade step-aic på den modellen innan reduceringen. I den fullständiga modellen ser vi extrem multikollinearitet bland markanvändningsvariablerna: VIF $>2000$ för x7_coniferous_forest_prop, x8_mixed_forest_prop och x11_agricultural_land_prop, samt VIF $\approx 80$–$90$ för x17_swine_log och x18_cattle_log. Trots att x12_bare_rock_prop exkluderats för att undvika perfekt kollinearitet kvarstår mycket hög multikollinearitet mellan övriga markanvändningsproportioner. Orsaken är att proportionerna är starkt korrelerade med varandra—ökar en markanvändningstyp måste andra minska. De höga VIF-värdena innebär instabila koefficienter och opålitliga standardfel.
 
 
-
-### VIF-kontroll (numeriska prediktorer)
-
+**VIF-kontroll efter step-aic**
 ```{r, results='hide'}
 vif_numeric <- function(model, data){
   tt <- terms(model)
@@ -280,19 +273,20 @@ vif_full_log
 vif_step_log
 ```
 
-### Diagnostik (log- resp. rå-respons)
-Vi testade med att ta fram diagnostikplottarna, 
+### Tolkning av VIF-resultat
+I StepAIC-modellen är multikollineariteten avsevärt reducerad. Alla VIF-värden är $<10$; de högsta gäller x2_population_log ($\text{VIF}=8.3$) och x17_swine_log ($\text{VIF}=7.9$), medan majoriteten av VIF-värdena är $<3$. StepAIC har därmed effektivt eliminerat de mest problematiska variablerna, vilket ger en mer stabil modell som är lämplig för inferens och tolkning av koefficienter. Vi ser inga anledning till att ta bort fler variabler. 
+
+
+#### Diagnostik (transformerade modell efter stepa-ci)
+Vi testade med att ta fram diagnostikplottarna för den step-aic reducerade modell.
 
 ```{r, fig.width=7, fig.height=7}
-par(mfrow=c(2,2)); plot(fit_full_log)
+par(mfrow=c(2,2)); plot(fit_step_log) 
 ```
 
-I den fulla modellen ser vi starka och signifikanta samband för x2_population_log (+), x16_runoff (+) och x19_treatment_percent (–). x17_swine_log är svagt positiv. Övriga markanvändnings- och djurvariabler, inklusive x18_cattle_log, visar ingen tydlig effekt. På landsnivå ligger SWEDEN lägre än referenslandet Estland ($p<0.01$). Modellens förklaringsgrad är hög med justerat $R^2 \approx 0.93$.
+För step-AIC-modellen med log-$y$ visar Residuals vs Fitted att punkterna ligger kring 0 utan tydlig kurvatur, vilket innebär att lineariteten är okej. Q–Q-plottan ligger nära diagonalen med små svansavvikelser, så normaliteten är acceptabel. Scale–Location har en nästan plan loess-kurva, vilket tyder på högst mild heteroskedasticitet. I Residuals vs Leverage finns några punkter med något hög leverage, men Cook’s $D$ ligger väl under kritiska nivåer, vilket innebär att det inte finns några starkt inflytelserika observationer.
 
-Med stegvis AIC kvarstår i huvudsak samma kärnsignaler och modellen förenklas: x2_population_log (+), x16_runoff (+), x17_swine_log (+) och x19_treatment_percent (–). Därutöver framträder svagare markanvändningssamband: x7_coniferous_forest_prop (+), x6_deciduous_forest_prop (positivt, på gränsen), x9_shrubland_prop (positivt, på gränsen) samt x3_urban_percent (negativt, på gränsen). SWEDEN förblir lägre, och anpassningen är i stort sett oförändrad (justerat $R^2 \approx 0.935$).
-
-Sammanfattningsvis ökar DIN främst med befolkning, avrinning och antal svin, medan hög anslutning till reningsverk minskar DIN. Skogs- och buskandeler kan bidra svagt positivt. Sverige har en lägre basnivå än övriga länder givet övriga faktorer.
-
+LM-antagandena är i stort uppfyllda och modellen är stabil och tolkbar för både inferens och prediktion.
 
 
 ```{r, results='hide'}
@@ -305,25 +299,25 @@ fit_full_raw <- lm(form_full_raw, data=df)
 summary(fit_full_raw)
 ```
 
+#### Diagnostik (rå-respons)
+Vi testar modelldiagnostik på full modell med untransformerade variabler. 
 ```{r, fig.width=7, fig.height=7}
 par(mfrow=c(2,2)); plot(fit_full_raw)
 ```
 
 **Diagnostik (rå-respons) **
+Residuals vs Fitted visar tydlig kurvatur och en kraftig ”funnel”, vilket innebär bruten linearitet och stark heteroskedasticitet; några extrema punkter (t.ex. 11, 23, 10) sticker ut. Q–Q-plottan har klara avvikelser i båda svansarna, särskilt i den övre (11, 23), så normalantagandet håller dåligt. Scale–Location-plottan visar att variansen ökar med det anpassade värdet, vilket bekräftar tydlig heteroskedasticitet. I Residuals vs Leverage finns observationer med mycket hög leverage nära eller över Cook’s $D \approx 1$ (punkterna längst till höger), vilket tyder på potentiellt starkt inflytande på koefficienterna.
 
-* **Residuals vs Fitted:** Tydlig kurvatur och kraftig “funnel” → bruten linearitet och stark heteroskedasticitet. Ett par extrema punkter (t.ex. 11, 23, 10) sticker ut.
-* **Q–Q:** Klara avvikelser i båda svansar (särskilt övre; 11, 23). Normalantagandet håller dåligt.
-* **Scale–Location:** Variansen ökar med anpassat värde → tydlig heteroskedasticitet.
-* **Residuals vs Leverage:** Några observationer med mycket hög **leverage** nära/över Cook’s (D\approx1) (punkterna längst till höger) → potentiellt starkt inflytande på koefficienterna.
+Den linjära modellen på rå skala uppfyller alltså inte antagandena (nonlinearitet, icke-konstant varians och inflytelserika punkter). En log-respons är motiverad. Även om den otransformerade modellen har bättre justerat $R^2$ kan vi inte använda den eftersom antagandena inte håller. Den transformerade modellen uppfyller kraven för linjär regression bättre och är därför mer relevant.
 
-Den linjära modellen på rå skala uppfyller inte antagandena (nonlinearitet, icke-konstant varians, inflytelserika punkter). En log-respons (som i huvudanalysen) är motiverad.
+Log-modellen uppfyller antagandena bättre än rå-modellen. Därför är vår slutliga förklaringsmodell den med transformerade variabler efter step-aic. Alltså med förklarande variabler x2_population_log, x3_urban_percent, x6_deciduous_forest_prop, x7_coniferous_forest_prop, x9_shrubland_prop, x16_runoff, x17_swine_log, x19_treatment_prop och länder. 
 
-Även om den otransformerade modellen har bättre justerade $R^2$ så kan man inte anta linjära antagande på modellen och använda den. Däremot är den transformerade modellen fyller kraven på linjär regression mycket och är mer relevant. 
-
-*Log-modellen uppfyller antagandena bättre än rå-modellen.*
 
 ## 4.3 Samma variabler i Sverige som i grannländer?
-Vi skapade ett kategorisk variabel "Sweden group" och kategoriserade alla observation om de är Sverige eller inte. Vi skapade ett linjär regression modell på denna alla variabeln och sweden group förutom själva landkategori. Vi körde step-aic på denna variabeln för att få ett mer vald selektion av variabler att köra ett interaktion med. Vi körde anova interaktion test för denna vald del av variabler. Den valda variablerna blev y_log, x1_area_km2_log + x2_population_log + x3_urban_percent + x9_shrubland_prop + x16_runoff + x18_cattle_log + x19_treatment_percent med denna nya variabeln. 
+Vi skapade en kategorisk variabel ”Sweden group” som klassificerar varje observation som Sverige eller icke-Sverige. Därefter passade vi en linjär regressionsmodell som inkluderade alla variabler tillsammans med Sweden group, men exkluderade den ursprungliga landkategorin. För att få en mer riktad uppsättning variabler inför interaktionstester körde vi step-AIC på denna modell och genomförde sedan ett ANOVA-test för interaktioner på den utvalda delmängden.
+
+De variabler som valdes (tillsammans med Sweden group) var: y_log, x1_area_km2_log, x2_population_log, x3_urban_percent, x9_shrubland_prop, x16_runoff, x18_cattle_log och x19_treatment_percent.
+
 
 **Test av interaktioner och huvudeffekt (Sweden vs Non-Sweden).**
 
