@@ -98,20 +98,29 @@ country_tbl  <- table(df$x20_country)
 
 # 1 Sammanfattning
 
-Vi analyserar sambanden mellan tillförsel av löst oorganiskt kväve (DIN) och demografiska, hydrologiska samt markanvändningsrelaterade faktorer i Östersjöns avrinningsområden. Data förbehandlas (enhetsbyten, loggar, andelar) och utforskas grafiskt. Linjära modeller med log-transformerad respons jämförs mot rå-respons och olika varianter av förklarande variabler. Variabelselektion görs med AIC, multikollinearitet kontrolleras med VIF och antaganden granskas med standarddiagnostik. Leave-One-Out CV med Duans smearing används för prediktion på kg-skalan. Resultaten visar att DIN främst ökar med befolkning, avrinning och antal svin, medan hög anslutning till reningsverk minskar DIN. Sverige har lägre grundnivå än övriga länder men samma lutningar. Den bästa prediktionsmodellen är log-respons med log-arealer (stepAIC).
+Sambanden mellan tillförsel av löst oorganiskt kväve (DIN) och demografiska- samt olika mark faktorer i Östersjöns avrinningsområden har analyserats med en förklaringsmodell som vi tagit fram genom logtransformeringar, manuell variabelselektion och step-funktionen. Resultaten i vår modell visar att DIN främst ökar med befolkning, avrinning och antal svin, medan hög anslutning till reningsverk minskar DIN. Sverige har lägre grundnivå än övriga länder men ingen statistiskt signifikant skillnad mellan förklaringsvariablerna. Även en prediktionsmodell togs fram med relativt RMSEP på 34% vilket i vårt sammanhang får anses bra.
 
 # 2 Inledning
 
-Målet är att modellera och jämföra hur DIN (dissolved inorganic nitrogen) i tillrinnande vattendrag påverkas av avrinningsområdets storlek, befolkning, markanvändning, djurhållning, avrinning samt reningsanslutning, och att bedöma om sambanden skiljer mellan Sverige och övriga länder. Vi utvärderar modeller både för inferens och prediktion (LOOCV).
+Målet är att modellera och jämföra hur DIN (dissolved inorganic nitrogen) i tillrinnande vattendrag påverkas av avrinningsområdets storlek, befolkning, demografi, marksammansättning, djurhållning, avrinning samt reningsanslutning. Samt att bedöma om sambanden skiljer mellan Sverige och övriga länder. Vi utvärderar modeller både för inferens och prediktion (LOOCV).
 
 # 3 Data
 
-**Källa och struktur.** Datasetet `baltic_DIN.csv` består av avrinningsområden med variabler $x_1,\dots,x_{20}$ och respons $y$ (DIN, kg). Vi omvandlar areor från ha till km², bildar loggar och andelar enligt uppgift. Datakontroller (andelar, täthet, arealsummor) utföll väl utan avvikelser av praktisk betydelse.
+**Källa och struktur.** Datasetet `baltic_DIN.csv` består av avrinningsområden med variabler $x_1,\dots,x_{20}$ och respons $y$ (DIN, kg). Vi omvandlar areor från ha till km², logtransformerar vissa variabler och gör om areor till andelar. Samt omvandlar x20 till en faktor för att kunna använda i regressionsmodell.
 
+<<<<<<< Updated upstream
 **Länder och antal.** Datasetet omfattar $r$ `nlevels(df$x20_country)` länder:
 `
 paste(sprintf("%s (%d)", names(table(df$x20_country)), as.integer(table(df$x20_country))), collapse = ", "
 `
+=======
+**Länder och antal.** Datasetet omfattar 7 länder och ett "MISSING" kategori:
+```{r}
+paste(sprintf("%s (%d)", names(table(df$x20_country)), as.integer(table(df$x20_country))), collapse = ", ")
+```
+
+Vi ser att Litauen har en observation och Polen och Ryssland har endast 2. 
+>>>>>>> Stashed changes
 
 **Variabler (urval).**
 
@@ -128,9 +137,6 @@ paste(sprintf("%s (%d)", names(table(df$x20_country)), as.integer(table(df$x20_c
 | $x19$      | numerisk | Anslutning reningsverk (%)                  |
 | $x20$      | char   | Land                                        |
 
-
-
-Vi omvandlade $x20$ till faktor för att utföra R funktioner. 
 
 
 
@@ -159,12 +165,18 @@ hist(df$y, breaks="FD", main="Histogram of y (DIN, kg)", xlab="y (kg)")
 ```
 
 
+<<<<<<< Updated upstream
 * Spridningsdiagram (y mot x1–x19): tydligt positivt samband för x1 area, x2 population, x11 jordbruksmark, x15 artificiella ytor, x17 svin och x18 nöt. x9 buskmark ser positiv ut men drivs av ett fåtal extrema värden; x13 inlandsvatten svagt–måttligt positivt.
 * Svagt/oklart samband: x3 urban andel, x5 täthet, skogstyperna x6–x8, x10 våtmark.
 * Negativ lutning: x12 häll/berg, x14 snö/is och x19 reningsanslutning. x16 avrinning nära noll/svagt negativ i råa data.
 * Heteroskedasticitet och outliers: variationen i y ökar med nivån och flera paneler påverkas av några mycket stora vattendrag.
 * Boxplot (y per land): Polen högst, Ryssland/Latvia mellanhöga, Sverige och Finland generellt låga; stor inomlands-variation och sned fördelning.
 * Histogram: y är kraftigt högerskev med några extrema toppar → log-transform av y är motiverad.
+=======
+#### Tolkning av scatterplot 
+
+Spridningsdiagrammen ($y$ mot $x_1$–$x_{19}$) visar tydligt positiva samband för $x_1$ (avrinningsområdets area), $x_2$ (befolkning), $x_{11}$ (jordbruksmark), $x_{15}$ (artificiella ytor), $x_{17}$ (svin) och $x_{18}$ (nöt); $x_9$ (buskvegetation) ser också positiv ut men effekten drivs av några få extrema värden, och $x_{13}$ (inlandsvatten) är svagt–måttligt positiv. Sambanden är svaga eller oklara för $x_3$ (urban andel), $x_5$ (befolkningstäthet), skogstyperna $x_6$–$x_8$ samt $x_{10}$ (våtmark). Negativ lutning ses för $x_{12}$ (häll/berg), $x_{14}$ (snö/is) och $x_{19}$ (reningsanslutning), medan $x_{16}$ (avrinning) ligger nära noll eller svagt negativ i råa data. Variationen i $y$ ökar med nivån och flera paneler påverkas av några mycket stora vattendrag (heteroskedasticitet och outliers). Boxplottar av $y$ per land visar Polen högst, Ryssland och Lettland mellanhöga samt Sverige och Finland generellt låga nivåer, med stor inomlandsvariation och sned fördelning. Histogrammet visar att $y$ är kraftigt högerskev med några extrema toppar, vilket motiverar en $\log$-transform av $y$; dessutom ligger många punkter långt till vänster i plottarna, vilket ytterligare talar för $\log$-transform för att få en mer symmetrisk fördelning.
+>>>>>>> Stashed changes
 
 * Eftersom alla punkterna är till vänster i plottarna motiveras log-trasnform för att få mer symmetrisk fördelning. 
 

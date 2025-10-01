@@ -175,17 +175,15 @@ hist(df$y, breaks="FD", main="Histogram of y (DIN, kg)", xlab="y (kg)")
 =======
 #### Tolkning av scatterplot 
 
-Spridningsdiagrammen ($y$ mot $x_1$–$x_{19}$) visar tydligt positiva samband för $x_1$ (avrinningsområdets area), $x_2$ (befolkning), $x_{11}$ (jordbruksmark), $x_{15}$ (artificiella ytor), $x_{17}$ (svin) och $x_{18}$ (nöt); $x_9$ (buskvegetation) ser också positiv ut men effekten drivs av några få extrema värden, och $x_{13}$ (inlandsvatten) är svagt–måttligt positiv. Sambanden är svaga eller oklara för $x_3$ (urban andel), $x_5$ (befolkningstäthet), skogstyperna $x_6$–$x_8$ samt $x_{10}$ (våtmark). Negativ lutning ses för $x_{12}$ (häll/berg), $x_{14}$ (snö/is) och $x_{19}$ (reningsanslutning), medan $x_{16}$ (avrinning) ligger nära noll eller svagt negativ i råa data. Variationen i $y$ ökar med nivån och flera paneler påverkas av några mycket stora vattendrag (heteroskedasticitet och outliers). Boxplottar av $y$ per land visar Polen högst, Ryssland och Lettland mellanhöga samt Sverige och Finland generellt låga nivåer, med stor inomlandsvariation och sned fördelning. Histogrammet visar att $y$ är kraftigt högerskev med några extrema toppar, vilket motiverar en $\log$-transform av $y$; dessutom ligger många punkter långt till vänster i plottarna, vilket ytterligare talar för $\log$-transform för att få en mer symmetrisk fördelning.
+Spridningsdiagrammen ($y$ mot $x_1$–$x_{19}$) visar tydligt positiva samband för $x_1$ (avrinningsområdets area), $x_2$ (befolkning), $x_{11}$ (jordbruksmark), $x_{15}$ (artificiella ytor), $x_{17}$ (svin) och $x_{18}$ (nöt); $x_9$ (buskvegetation) ser också positiv ut men effekten drivs av några få extrema värden, och $x_{13}$ (inlandsvatten) är svagt–måttligt positiv. Sambanden är svaga eller oklara för $x_3$ (urban andel), $x_5$ (befolkningstäthet), skogstyperna $x_6$–$x_8$ samt $x_{10}$ (våtmark). Negativ lutning ses för $x_{12}$ (häll/berg), $x_{14}$ (snö/is) och $x_{19}$ (reningsanslutning), medan $x_{16}$ (avrinning) ligger nära noll eller svagt negativ i råa data. Variationen i $y$ ökar med nivån och flera paneler påverkas av några mycket stora vattendrag (heteroskedasticitet och outliers). Boxplottar av $y$ per land visar Polen avvikande med sina 2 observationer, Ryssland och Lettland mellanhöga samt Sverige och Finland generellt låga nivåer. Histogrammet visar att $y$ är kraftigt högerskev med några extrema toppar, vilket motiverar en $\log$-transform av $y$; dessutom ligger många punkter långt till vänster i plottarna, vilket ytterligare talar för $\log$-transform för att få en mer symmetrisk fördelning.
 >>>>>>> Stashed changes
-
-* Eftersom alla punkterna är till vänster i plottarna motiveras log-trasnform för att få mer symmetrisk fördelning. 
 
 # 4 Statistisk modellering
 
 **Kommentar om kollinearitet.**
-$x3+x4=100$ (perfekt kollinearitet). $x5$ är härledd ur $x2$ och $x1$. Summan av markandelsvariabler $x6$–$x15$ är $x1$, vilket ger nära-perfekt kollinearitet. Vi måste därför exkludera en, t.ex $x_12$, och exkluderar $x4$, $x5$ och $x12$ enligt anvisning.
+Vi har $x3+x4=100$ (perfekt kollinearitet) samt $x5= x2 / x1$. Summan av markandelsvariabler $x6$–$x15$ är $x1$, vilket ger nära-perfekt kollinearitet. Vi väljer därför att exkludera $x4$, $x5$ och $x12$ för att minska multikolineariteten.
 
-Vi börjar med att transformera responssvariabeln $y$ och $x_1$, $x_2$, $x_17$ och $x_18$. På variablarna $x6-x15$ tar vi prportionerna för den observationen, alltså delad med $x1$. Vi testade ett ny scatterplots, histogram och lådagram. 
+Vi börjar med att transformera responssvariabeln $y$ och $x_1$, $x_2$, $x_17$ och $x_18$. På variablarna $x6-x15$ tar vi proportionerna för den observationen, alltså delad med $x1$. Vi testade ett ny scatterplots, histogram och lådagram. 
 
 
 ## 4.1 Grundläggande grafer
