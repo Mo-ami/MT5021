@@ -109,6 +109,7 @@ Målet är att modellera och jämföra hur DIN (dissolved inorganic nitrogen) i 
 **Källa och struktur.** Datasetet `baltic_DIN.csv` består av avrinningsområden med variabler $x_1,\dots,x_{20}$ och respons $y$ (DIN, kg). Vi omvandlar areor från ha till km², bildar loggar och andelar enligt uppgift. Datakontroller (andelar, täthet, arealsummor) utföll väl utan avvikelser av praktisk betydelse.
 
 **Länder och antal.** Datasetet omfattar 7 länder och ett "MISSING" kategori:
+
 ```{r}
 paste(sprintf("%s (%d)", names(table(df$x20_country)), as.integer(table(df$x20_country))), collapse = ", ")
 ```
@@ -223,6 +224,7 @@ y_{\log} \sim & \text{x1_area_km2_log} + \text{x2_population_log} \\
 \end{aligned}
 $$
 Sedan testade step-aic (båda riktningar) på modellen och fick vår reducerade förklaringsmodell. 
+
 ```{r, results='hide'}
 form_full_log <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
   x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
@@ -232,6 +234,7 @@ form_full_log <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent 
 fit_full_log <- lm(form_full_log, data=df)
 summary(fit_full_log)
 ```
+
 I den fulla modellen ser vi starka och signifikanta samband för x2_population_log (+), x16_runoff (+) och x19_treatment_percent (–). x17_swine_log är svagt positiv. Övriga markanvändnings- och djurvariabler, inklusive x18_cattle_log, visar ingen tydlig effekt. På landsnivå ligger SWEDEN lägre än referenslandet Estland ($p<0.01$). Modellens förklaringsgrad är hög med justerat $R^2 \approx 0.93$.
 
 **Stegvis AIC model (båda riktningar).**
@@ -250,6 +253,7 @@ Vi testade VIF på den modellen som reducerades av step-aic. Samtidigt som vi te
 
 
 **VIF-kontroll efter step-aic**
+
 ```{r, results='hide'}
 vif_numeric <- function(model, data){
   tt <- terms(model)
@@ -339,66 +343,35 @@ form_step_interact <- as.formula(paste("y_log ~ (", paste(selected_vars, collaps
 fit_step_interact <- lm(form_step_interact, data=df)
 
 anova(fit_step_sweden, fit_step_interact)   # interaktioner
+```
+$p=0{,}523$, vilket ger inga bevis för att Sverige reagerar annorlunda på befolkning, avrinning, jordbruk m.m.
+
+```{r}
 anova(fit_step_no_country, fit_step_sweden) # huvudeffekt
 ```
-Interaktioner (p = 0,523). Det finns inga bevis för att Sverige reagerar olika på befolkning, avrinning, jordbruk etc. Vi testar också huvudeffekten.
 
+Vi testar även huvudeffekten och får $p=0{,}0001$, mycket signifikant. Sverige har därmed en annan grundnivå (intercept) för DIN än övriga länder även efter justering för de sju variablerna. RSS-värden: utan sweden_group $RSS=25{,}15$, med sweden_group $RSS=21{,}56$, en minskning på $3{,}59$ (cirka 14 % mindre oförklarad variation). 
 
-Huvudeffekt (p = 0,0001)
-Mycket signifikant. Sverige har en annan grundnivå (intercept) för DIN än övriga länder, även efter justering för de 7 variablerna.
+Vi kan inte förkasta nollhypotesen att Sverige har samma lutningar som grannländerna—påverkan av variablerna är densamma—men Sverige har systematiskt lägre DIN-nivåer (annat intercept). Dessa slutsatser gäller under förutsättning att LM-antagandena är uppfyllda.
 
-RSS-värden:
-
-Utan sweden_group: RSS = 25,15
-Med sweden_group: RSS = 21,56
-Minskning: 3,59 (14 % mindre oförklarad variation)
-
-Vi kan inte förkasta noll hypotesen att Sverige har samma lutning för variablerna som i granländerna. I andra ord vi kan att Sverige påverkas variabler jämfört med andra länder.  Men Sverige har systematiskt lägre DIN-nivåer överlag (annat intercept).
-
-
-Hypoteserna om Sweden-group och interaktioner bara är giltiga om just den modellen uppfyller LM-antagandena. 
 
 ```{r, fig.width=7, fig.height=7}
 par(mfrow=c(2,2)); plot(fit_step_sweden)
 ```
 
 **Diagnostik (vald log-modell)**
-Residualerna är centrerade kring noll utan tydlig struktur; endast en svag trend anas → linjäritet okej.
-Q–Q-plotten ligger nära diagonal med små svansavvikelser → normalitetsantagandet rimligt.
-Scale–Location visar nästan platt loess; något större spridning runt mellannivåer (≈7–8 i fitted) men ingen tydlig funnel → högst mild heteroskedasticitet.
-Residualer vs leverage: de flesta punkter har låg–måttlig leverage (<≈0.20) och alla ligger inom Cook’s (D<0.5) → inga klart inflytelserika observationer.
-Modellantagandena är i stort uppfyllda; eventuella små svansar/variansskillnader bedöms inte påverka huvudslutsatserna.
+Residualerna är centrerade kring noll utan tydlig struktur; endast en svag trend anas, vilket innebär att lineariteten är okej. Q–Q-plotten ligger nära diagonalen med små svansavvikelser, så normalitetsantagandet är rimligt. Scale–Location visar en nästan platt loess; spridningen är något större runt mellannivåer (cirka 7–8 i anpassade värden) men ingen tydlig ”funnel”, vilket innebär högst mild heteroskedasticitet. I Residuals vs Leverage har de flesta punkter låg till måttlig leverage (mindre än cirka 0.20) och alla ligger inom Cook’s $D<0.5$, vilket innebär att det inte finns några klart inflytelserika observationer. Sammantaget är modellantagandena i stort uppfyllda, och små svans- eller variansskillnader bedöms inte påverka huvudslutsatserna.
 
-
-**Full modell med alla prediktorer:**
-
-Vi testade också med anova interaktioner med hela modellen utan att välja med step-aic och fick p = 0,556)
-
-**Inte signifikant.** Samma slutsats som för utvalda variabler: inga bevis för att Sverige reagerar annorlunda på någon av de 16 prediktorerna.
-
-Diagnostikplotterna såg bra ut också på denna fulla modellen. 
-
-
-Vi testade också med den selektion av variablerna från för denna valda förklaringsmodell från 4.2, det visade inte några låg p-värde och kan inte förkasta variabeln. 
-
+Vi testade också med anova interaktioner med hela modellen utan att välja med step-aic. För den fulla modellen med alla prediktorer testade vi även ANOVA-interaktioner utan step-AIC och fick $p=0{,}556$, vilket inte är signifikant. Slutsatsen blir densamma som för de utvalda variablerna: det finns inga bevis för att Sverige reagerar annorlunda på någon av de 16 prediktorerna. Diagnostikplottarna såg också bra ut för denna fulla modell. Vi testade dessutom med den variabelselektion som användes i avsnitt 4.2; inga låga p-värden framkom och vi kan inte förkasta nollhypotesen.
 
 ## 4.4 Prediktion (LOOCV) och Duans smearing
-Vi vill nu se om det går att prediktera DIN utifrån förklaringsvariablerna. Här utvärderar vi modellernas **prediktiva precision** med **Leave-One-Out Cross-Validation (LOOCV)**, där vi använder **brute force**: för varje observation $i$ passas modellen om utan $i$, $i$ predikteras på rätt skala, felet sparas, och detta upprepas för alla $n$. För log-responsmodeller **backtransformeras prognoserna med Duan’s smearing**. När man prediktera nya värde med ett modell som man har log-transformerade så finns ett fel med baktransformation, man behöver använda något korrigering i detta Duan's smearing. Vi måste använda **brute force** istället hat matrisen för log-transformerade modellen eftersom vi behöver beräkna felkorrigering vid varje fall. 
+Vi utvärderar om DIN kan predikteras från förklaringsvariablerna genom att mäta modellernas prediktiva precision med Leave-One-Out Cross-Validation (LOOCV) via brute force: för varje observation $i$ passar vi om modellen utan $i$, predikterar $i$ på rätt skala, lagrar felet och upprepar detta för alla $n$. För log-responsmodeller backtransformerar vi prognoserna med Duan’s smearing, eftersom log-transformen ger en systematisk bias vid baktransformering; därför används brute force i stället för hat-matrisen så att smearing-korrigeringen kan beräknas separat för varje träningsuppsättning.
 
-Vi jämför tre modellfamiljer och deras stepAIC-varianter:
-(A) log-respons + log-arealer, (B) log-respons + arealandelar (proportioner), (C) rå respons + råa variabler. **Urvalskriteriet är lägst LOOCV-RMSE på kg-skalan**; justerat $R^2$ rapporteras som komplement. Modellen med lägst LOOCV-RMSE används för slutlig diagnostik och redovisning av prediktioner.
-
-Litauen tas bort i LOOCV eftersom landet har endast en observation, vilket gör att formeln inte kan beräknas när landfaktorn saknas i vissa träningsfolds.
-
-
-Vi använder Duans smearing för **log-responsmodellerna** (`A`, `B`, `A_step`, `B_mapped`). Mer specifikt backtransformeras varje utelämnad prediktion som:
-
+Vi jämför tre modellfamiljer och deras stepAIC-varianter: (A) log-respons + log-arealer, (B) log-respons + arealandelar (proportioner), (C) rå respons + råa variabler. Urvalskriteriet är lägst LOOCV-RMSE på kg-skalan, och justerat $R^2$ rapporteras som komplement. Modellen med lägst LOOCV-RMSE används för slutlig diagnostik och redovisning av prediktioner. Litauen utesluts i LOOCV eftersom landet endast har en observation, vilket gör att landfaktorn saknas i vissa träningsfolds och modellen inte kan beräknas. För log-responsmodellerna (A, B, A_step, B_mapped) backtransformeras varje utelämnad prediktion enligt
 $$
-\hat{y} = \exp(\hat{\eta}) \cdot \underbrace{\mathrm{mean}!\big(\exp(e)\big)}_{\text{smearingfaktor}} - 1,
+\hat{y}=\exp(\hat{\eta})\cdot \underbrace{\mathrm{mean}!\big(\exp(e)\big)}_{\text{smearingfaktor}}-1,
 $$
-
-där $\hat{\eta}$ är den predikterade $\log(1+y)$ och $e$ är residualerna från den aktuella träningspassning.
-
+där $\hat{\eta}$ är den predikterade $\log(1+y)$ och $e$ är residualerna från den aktuella träningspassningen.
 
 
 ```{r}
@@ -462,15 +435,10 @@ data.frame(
   Adj_R2 = c(adjr2_A, adjr2_B, adjr2_C)
 )
 ```
-**Tolkning:**
 
-Modell A har lägst LOOCV-RMSE (3626) → bäst prediktion på kg-skalan, med gott justerat $R^2$ ($\approx 0.941$).
+**Tolkning:** Modell A har lägst LOOCV-RMSE (3626) och ger bäst prediktion på kg-skalan, med justerat $R^2 \approx 0.941$. Modell C har högre LOOCV-RMSE (4752) men högst justerat $R^2 \approx 0.970$—den passar träningen bäst men predikterar sämre än A. Modell B är svagast (LOOCV-RMSE 9961; justerat $R^2 \approx 0.932$). Sammantaget är Modell A bäst för prediktion.
 
-Modell C har högre LOOCV-RMSE (4752) men högst justerat $R^2$ ($\approx 0.970$) → passar träningen bäst men predikterar sämre än A.
-
-Modell B är svagast (LOOCV-RMSE 9961; justerat $R^2 \approx 0.932$).
-
-Modell A för bäst här för prediktion.
+Vi testar nu att selektera en delmängd av variabler i alla tre fallen med step-AIC för att reducera modellerna till färre variabler och få enklare modeller.
 
 ```{r, , results='hide'}
 fit_A_step <- MASS::stepAIC(fit_A, direction="both", trace=FALSE)
@@ -482,6 +450,7 @@ summary(fit_C_step)
 ```
 
 **LOOCV för step-modeller.**
+
 ```{r}
 form_A_step <- formula(fit_A_step)
 form_B_step <- formula(fit_B_step)
@@ -510,19 +479,14 @@ data.frame(
 
 ```
 
+A_step (log $y$, log-areor) behåller x2_population_log (+), x16_runoff (+) och x17_swine_log (+); för markanvändning ingår x7 (+), x9 (+), x11 (+) och x8 (−), medan x3 är svagt negativ. Justerat $R^2_{\text{adj}}\approx 0.943$ och LOOCV-RMSE $\approx 3671$ (bäst). B_step ger sämst prediktion med LOOCV-RMSE $\approx 5613$. C_step (rå $y$, råa areor) har många areor (+); x1 (−) (”total vs delar”) och x2 (−) efter kontroll; samt x16 (+), x17 (+), x18 (+) och x19 (−), med $R^2_{\text{adj}}\approx 0.970$ och LOOCV-RMSE $\approx 4654$.
 
-* **A_step (log $y$, log-areor):** behåller $x2_{\text{pop_log}}(+)$, $x16_{\text{runoff}}(+)$, $x17_{\text{swine_log}}(+)$; mark: $x7(+)$, $x9(+)$, $x11(+)$, $x8(-)$; $x3$ svagt $(-)$. $R^2_{\text{adj}}\approx0.943$, LOOCV RMSE $\approx3671$ (bäst).
-
-* **B_step:** sämst prediktion, LOOCV RMSE $\approx5613$.
-
-* **C_step (rå $y$, råa areor):** många areor $(+)$; $x1(-)$ (”total vs delar”), $x2(-)$ efter kontroll; $x16(+)$, $x17(+)$, $x18(+)$; $x19(-)$. $R^2_{\text{adj}}\approx0.970$, LOOCV RMSE $\approx4654$.
+Vi väljer A_step som bästa prediktionsmodell: den använder log-transformerad respons $y$ samt log-transformerade areor, befolkning och djur. Även om den fulla A-modellen utan selektion hade något lägre LOOCV-RMSE (≈3626) än A_step (≈3671) är skillnaden liten, och A_step är avsevärt enklare med färre variabler, vilket är att föredra.
 
 
-**A_step** är bäst för prediktion. Alltså denna modellen som log-transformerade respons variabel y och log transformerade x-arealer, befolkning och djur.
-Eftersom den har låg Modell A har lägst LOOCV-RMSE (3671), men inte lägsta eftersom Model A innan step-aic har lite högre. Men den är ett mycket mer förenklade modell som har mycket färre variabler och ett förenklade modell är att föredra. 
 
+**Summary för slutliga prediktionsmodel**
 
-**Summary för prediktionsmodel)
 ```{r}
 summary(fit_A_step)
 ```
@@ -535,12 +499,10 @@ summary(fit_A_step)
 par(mfrow=c(2,2)); plot(fit_A_step2)
 ```
 
-* **Residuals vs Fitted:** Residualerna ligger kring 0; mycket svag trend. Enstaka utstickare (t.ex. 16, 71) men inget systematiskt mönster.
-* **Q–Q:** Nära rät linje; små svansavvikelser (höger: 16, vänster: 71, 1) ⇒ normalitet acceptabel.
-* **Scale–Location:** Spridningen ungefär konstant; högst mild heteroskedasticitet runt medelnivåer.
-* **Residuals vs Leverage:** De flesta punkter har låg–måttlig leverage (<≈0.3); inga går över $0.5$. Cook’s $D<0.5$ ⇒ inga starkt inflytelserika observationer.
+Residuals vs Fitted visar att residualerna ligger kring 0 med en mycket svag trend. Det finns enstaka utstickare (t.ex. 16 och 71) men inget systematiskt mönster. Q–Q-plotten ligger nära en rät linje med små svansavvikelser (höger: 16; vänster: 71 och 1), vilket gör normaliteten acceptabel. Scale–Location visar ungefär konstant spridning med högst mild heteroskedasticitet runt mellannivåer. I Residuals vs Leverage har de flesta punkter låg–måttlig leverage ($<\approx 0.3$); inga går över $0.5$. Cook’s $D<0.5$, vilket innebär att inga observationer är starkt inflytelserika.
 
-LM-antagandena för A_step på $y_{\log}$ är i stort uppfyllda och LOOCV_RMSEP värden är stabila för den. Det finns inga inflytelserika observationer.  
+Sammanfattningsvis är LM-antagandena för A_step på $y_{\log}$ i stort uppfyllda, LOOCV_RMSEP-värdena är stabila och det finns inga inflytelserika observationer.
+
 
 
 # 5 Resultat
