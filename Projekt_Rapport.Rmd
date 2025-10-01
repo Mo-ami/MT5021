@@ -581,6 +581,13 @@ Slutligen etableras i del 4.5 en prediktionsmodell som vi finner som den bästa 
 
 # 6 Diskussion
 
+### Variabler att logaritmera(eller inte)
+I den itterativa proccess som leder oss fram till den slutliga förklarringsmodellen i del 4.1-4.2 så prövas många saker. En del förklaringsvariabler logaritmeras medan areor transformeras till areaandelar. Med så många förklarande variabler blir det otänkbart att prova alla kombinationer. Vägledande blir de individuella plottarna av förklaringvariabler mot responsvariabeln, samt diagnostiska plottar. Om det inte ser ut att uppfylla modellantagenden eller om de plottarna är svårtolkade så provas en transformation. 
+
+Även om flera, inte alla, plottar som involverar en area som förklaringsvariabel, ser bättre ut efter en transformation till areaandel, så är det tänkbart att istället logaritmera dem, vilket inte prövas.
+
+### Outliers
+I del 4.4-4.5 så förekommer för modell B och C några inlytelserika outliers. Det är tänkbart att prova att plocka bort dem och se om $RMSEP$-värdet förbättras utan en för stor förlust i justerad $R^2$
 
 # 7 Gruppmedlemmarnas arbetsinsats
 
