@@ -95,7 +95,7 @@ country_tbl  <- table(df$x20_country)
 
 # 1 Sammanfattning
 
-Vi analyserar sambanden mellan tillförsel av löst oorganiskt kväve (DIN) och demografiska, hydrologiska samt markanvändningsrelaterade faktorer i Östersjöns avrinningsområden. Data förbehandlas (enhetsbyten, loggar, andelar) och utforskas grafiskt. Linjära modeller med log-transformerad respons jämförs mot rå-respons och olika varianter av förklarande variabler. Variabelselektion görs med AIC, multikollinearitet kontrolleras med VIF och antaganden granskas med standarddiagnostik. Leave-One-Out CV med Duans smearing används för prediktion på kg-skalan. Resultaten visar att DIN främst ökar med befolkning, avrinning och antal svin, medan hög anslutning till reningsverk minskar DIN. Sverige har lägre grundnivå än övriga länder men kan inte förkasta nollhypotsen att sverige har samma lutningar som grannländer. Den bästa prediktionsmodellen är log-respons med log-arealer (stepAIC).
+Vi analyserar sambanden mellan tillförsel av löst oorganiskt kväve (DIN) och demografiska, hydrologiska samt markanvändningsrelaterade faktorer i Östersjöns avrinningsområden. Data förbehandlas (enhetsbyten, loggar, andelar) och utforskas grafiskt. Linjära modeller med log-transformerad respons (log(1+y)) jämförs mot rå-respons och olika varianter av förklarande variabler. Variabelselektion görs med AIC, multikollinearitet kontrolleras med VIF och antaganden granskas med standarddiagnostik. Leave-One-Out CV med Duans smearing används för prediktion på kg-skalan. Resultaten visar att DIN främst ökar med befolkning, avrinning och antal svin, medan hög anslutning till reningsverk minskar DIN (förklaringsmodell). Sverige har lägre grundnivå än övriga länder men kan inte förkasta nollhypotsen att sverige har samma lutningar som grannländer. Den bästa prediktionsmodellen är log-respons med log-arealer (stepAIC).
 
 # 2 Inledning
 
@@ -103,9 +103,9 @@ Målet är att modellera och jämföra hur DIN (dissolved inorganic nitrogen) i 
 
 # 3 Data
 
-**Källa och struktur.** Datasetet `baltic_DIN.csv` består av avrinningsområden med variabler $x_1,\dots,x_{20}$ och respons $y$ (DIN, kg). Vi omvandlar areor från ha till km², bildar loggar och andelar enligt uppgift. Datakontroller (andelar, täthet, arealsummor) utföll väl utan avvikelser av praktisk betydelse.
+**Källa och struktur.** Datasetet `baltic_DIN.csv` består av avrinningsområden med variabler $x_1,\dots,x_{20}$ och respons $y$ (DIN, kg). Vi omvandlar areor från ha till km², bildar loggar (log(1+p)) och andelar. Datakontroller (andelar, täthet, arealsummor) utföll väl utan avvikelser av praktisk betydelse.
 
-**Länder och antal.** Datasetet omfattar 7 länder och ett "MISSING" kategori:
+**Länder och antal.** Datasetet omfattar 7 länder och ett "MISSING" (i huvudsak Danmark och Tyskland) kategori:
 
 ```{r, results='asis'}
 country_counts <- table(df$x20_country)
@@ -119,18 +119,22 @@ Vi ser att Litaun har en observation och Polen och Ryssland har endast 2.
 
 **Variabler (urval).**
 
-| Variabel   | Typ      | Beskrivning                                 |
-| ---------- | -------- | ------------------------------------------- |
-| $y$        | numerisk | DIN (kg)                                    |
-| $x1$       | numerisk | Avrinningsområde (ha $\rightarrow$ km²)     |
-| $x2$       | numerisk | Befolkning                                  |
-| $x3,x4$    | numerisk | Andel stad/land (%)                         |
-| $x5$       | numerisk | Befolkningstäthet (inv/km²)                 |
-| $x6$–$x15$ | numerisk | Markanvändningsareor (ha $\rightarrow$ km²) |
-| $x16$      | numerisk | Avrinning (mm/år)                           |
-| $x17,x18$  | numerisk | Svin/Nöt (antal)                            |
-| $x19$      | numerisk | Anslutning reningsverk (%)                  |
-| $x20$      | char   | Land                                        |
+| Variabel   | Typ      | Beskrivning                                 | Transformationer tillämpade |
+|:-----------|:---------|:--------------------------------------------|:----------------------------|
+| $y$        | numerisk | DIN (kg)                                    | $\log(1+y)$ |
+| $x_1$      | numerisk | Avrinningsområde (ha $\rightarrow$ km²)     | ha $\times$ 0.01 $\rightarrow$ km²; $\log(1+x_1)$ |
+| $x_2$      | numerisk | Befolkning                                  | $\log(1+x_2)$ |
+| $x_3$      | numerisk | Andel stad (\%)                             | Ingen transformation |
+| $x_4$      | numerisk | Andel land (\%)                             | Exkluderad (perfekt kollinearitet med $x_3$) |
+| $x_5$      | numerisk | Befolkningstäthet (inv/km²)                 | Exkluderad (härledd från $x_1$, $x_2$) |
+| $x_6$--$x_{15}$ | numerisk | Markanvändningsareor: lövskog, barrskog, blandskog, buskmark, våtmark, jordbruksmark, häll/berg, inlandsvatten, snö/is, artificiella ytor (ha $\rightarrow$ km²) | ha $\times$ 0.01 $\rightarrow$ km²; andel ($\div x_1$); $\log(1+x_i)$. $x_{12}$ exkluderad (kollinearitet) |
+| $x_{16}$   | numerisk | Avrinning (mm/år)                           | Ingen transformation |
+| $x_{17}$, $x_{18}$ | numerisk | Svin/Nöt (antal)                      | $\log(1+x_i)$ |
+| $x_{19}$   | numerisk | Anslutning reningsverk (\%)                 | \% $\rightarrow$ andel ( $\div$ 100) |
+| $x_{20}$   | char     | Land                                        |  |
+
+Notera: För markanvändningsvariabler ($x_6$--$x_{15}$) skapades både areaandelar (proportion) och log-transformerade areor (km²), beroende på modellvariant.
+
 
 Vi omvandlade $x20$ till faktor för att utföra R funktioner. 
 
@@ -503,23 +507,24 @@ Sammanfattningsvis är LM-antagandena för A_step på $y_{\log}$ i stort uppfyll
 
 
 # 5 Resultat
-Det går att påvisa statistisk signifikans för kvantitativa samband mellan våra förklarande varaibler och DIN. Den modell som etableras i slutet av del 4.2 uppfyller antaganden nödvändiga för linjär regression, har ett högt justerat $R^2$-värde, acceptabla värden vid VIF test, och har låga p-värden för några av förklaringsvariablerna vilket visar på statistisk signifikans. Mer specifikt så påvisas ett positivt samband mellan DIN Befolkningen i området, avrinningen (mm/år , dvs liter per kvadratmeter och år) och antal svin inom området. Ett negativt samband etableras mellan DIN och andel av befolkningen som är ansluten till reningsverk. 
 
-Vidare för den valda modellen, vid genomfört anova test, så kan det inte påvisas att de förklarande variablerna skulle påverka DIN annorlunda i Sverige jämfört med reserande länder. Vi får därmed godta förklaringsmodellen som hyffsat gilltig för hela östersjö området. 
+**Förklaringsmodell (log-respons, StepAIC).** Vi fann tydliga kvantitativa samband mellan DIN och flera förklarande variabler. Den slutliga förklaringsmodellen använder $\log(1+y)$ som respons och inkluderar: befolkning ($x2_{\log}$), urban andel ($x3$), andelar av löv-, barr- och buskmark ($x6, x7, x9$), avrinning ($x16$), svin ($x17_{\log}$), reningsanslutning ($x19$) samt land. Modellen har justerat $R^2 \approx 0{.}935$ och god diagnostik. Viktigast är att DIN ökar med befolkning ($\hat{\beta} \approx 0{.}331$, $p < 0{.}001$; ungefär 3,3\% högre DIN vid 10\% större befolkning), och med avrinning ($\hat{\beta} \approx 0{.}00281$, $p < 10^{-12}$; ca 0,28\% högre DIN per ytterligare mm/år). Svin är också positivt ($\hat{\beta} \approx 0{.}474$, $p < 10^{-9}$; ca 4,7\% högre DIN vid 10\% fler svin). Högre reningsanslutning är negativt ($\hat{\beta} \approx -1{.}21$, $p = 0{.}006$; +10 procentenheter anslutning $\approx$ 11--12\% lägre DIN). Bland markvariablerna syns svagt positiva effekter av barrskog ($p \approx 0{.}04$) och buskmark ($p \approx 0{.}06$); lövskog är på gränsen ($p \approx 0{.}10$). Sverige har lägre grundnivå än referensen (Estland) ($\hat{\beta} \approx -0{.}89$, $p \approx 0{.}004$), men i övrigt liknande samband. Den modell som etableras i slutet av del 4.2 uppfyller antaganden nödvändiga för linjär regression, har ett högt justerat $R^2$-värde, acceptabla värden vid VIF test, och har låga p-värden för några av förklaringsvariablerna vilket visar på statistisk signifikans.
 
-Slutligen etableras i del 4.5 en prediktionsmodell som vi finner som den bästa bland de som testas med $RMSEP = 3671$ och ett gott relativt prediktionsfel ca $35%$ i balans med en hög förklaringsgrad justerad $R^2$ på ca $0.94$.
+**Sverige vs. övriga länder.** Interaktionstest mellan ``Sweden'' och de utvalda prediktorerna gav inget stöd för olika lutningar ($p = 0{.}523$). Ett test för enbart nivåskillnad gav däremot starkt stöd för lägre intercept i Sverige ($p \approx 0{.}0001$), med cirka 14\% lägre oförklarad variation när denna skillnad tillåts. Tolkning: samma drivkrafter, men lägre grundnivå i Sverige.
 
+**Prediktionsmodell (bäst LOOCV, enkel).** För prediktion valde vi modellen ``A\_step'': $\log(1+y)$ mot $\log$-arealer (skogstyper, jordbruk), $\log$ befolkning, $\log$ svin och $\log$ nöt, samt avrinning, reningsanslutning och land. Den har LOOCV-RMSE $\approx$ **3671 kg** (relativt fel $\approx$ 0,35) och justerat $R^2 \approx 0{.}943$. Centrala elasticiteter på $\log$-skala: befolkning (+0{.}332) ($\approx$ +3,3\% DIN per +10\%), jordbruksmark (+1{.}094) ($\approx$ +10,9\% per +10\%), barrskog (+0{.}165) ($\approx$ +1,7\% per +10\%), buskmark (+0{.}052) ($\approx$ +0,5\% per +10\%), bland-/blandskog ($-0{.}221$) ($\approx$ $-2{.}2$\% per +10\%). Avrinning ger $\approx$ +0,28\% per mm/år. Svin är positivt (+0{.}589; $\approx$ +5,9\% per +10\%). Nöt blev negativ i denna prediktionsmodell ($-1{.}17$; $\approx$ $-11{.}7$\% per +10\%), vilket förbättrar prognoserna men är innehållsligt oväntat. Reningsanslutning var svagt positiv och ej säker ($p \approx 0{.}17$) i just denna prediktionsmodell; tecknet skiljer sig från förklaringsmodellen, vilket tyder på att prediktionsurvalet hanterar kollinearitet annorlunda.
+
+**Samlad slutsats på uppgifternas frågor.** (i) Ja, det finns robusta, kvantitativa samband: främst befolkning, avrinning och svin ökar DIN; hög reningsanslutning minskar DIN. (ii) Sambanden är i stort desamma i Sverige som i grannländerna (ingen interaktion), men Sverige ligger lägre i nivå. (iii) DIN kan predikteras med rimlig noggrannhet: LOOCV-RMSE $\approx$ 3\,700 kg och god förklaringsgrad på $\log$-skalan.
 
 # 6 Diskussion
 
-### Variabler att logaritmera(eller inte)
-I den itterativa proccess som leder oss fram till den slutliga förklarringsmodellen i del 4.1-4.2 så prövas många saker. En del förklaringsvariabler logaritmeras medan areor transformeras till areaandelar. Med så många förklarande variabler blir det otänkbart att prova alla kombinationer. Vägledande blir de individuella plottarna av förklaringvariabler mot responsvariabeln, samt diagnostiska plottar. Om det inte ser ut att uppfylla modellantagenden eller om de plottarna är svårtolkade så provas en transformation. 
+Våra modeller uppfyller antagandena väl och ger tydliga huvudresultat, men flera brasklappar finns. Först, markandelsvariablerna är kompositionella (summerar mot total area). Även om StepAIC reducerade VIF till $< 10$ återstår inbördes beroenden; tecken och storlek för en enskild andel kan påverkas av vilka övriga andelar som ingår. En mer strikt behandling (t.ex. log-ratio-transformer av kompositionsdata) kunde ge ännu stabilare koefficienter. Andra, prediktionsmodellen optimerar fel i prognos snarare än tolkning; därför kan vissa tecken bli oväntade (som negativ nöt-effekt). Vi betraktar dessa som praktiska vikter som förbättrar RMSE, inte som säkra kausala effekter.
 
-Även om flera, inte alla, plottar som involverar en area som förklaringsvariabel, ser bättre ut efter en transformation till areaandel, så är det tänkbart att istället logaritmera dem, vilket inte prövas.
+Landfaktorn och ojämn landfördelning (t.ex. Litauen med en observation, Polen/Ryssland med två) ger låg power för landsvisa skillnader och interaktioner. Att Sverige inte visar andra lutningar kan alltså delvis bero på begränsad stickprovsstorlek per land. Fjärde, LOOCV hanterades noggrant men krävde att hoppa över Litauen i vissa vikningar; detta är praktiskt men innebär att osäkerheten nära sällsynta nivåer (unika länder) kan underskattas.
 
-### Outliers
-I del 4.4-4.5 så förekommer för modell B och C några inlytelserika outliers. Det är tänkbart att prova att plocka bort dem och se om $RMSEP$-värdet förbättras utan en för stor förlust i justerad $R^2$
+I den itterativa proccess som leder oss fram till den slutliga förklarringsmodellen i del 4.1-4.2 så prövas många saker. En del förklaringsvariabler logaritmeras medan areor transformeras till areaandelar. Med så många förklarande variabler blir det otänkbart att prova alla kombinationer. Vägledande blir de individuella plottarna av förklaringvariabler mot responsvariabeln, samt diagnostiska plottar. Om det inte ser ut att uppfylla modellantagenden eller om de plottarna är svårtolkade så provas en transformation. Det betyder att ett bättre selektion om hur vilka varje variabler borde transformeras och hur. Även om flera, inte alla, plottar som involverar en area som förklaringsvariabel, ser bättre ut efter en transformation till areaandel, så är det tänkbart att istället logaritmera dem, vilket inte prövas.
 
+I del 4.4-4.5 så förekommer för modell B och C några inlytelserika outliers. Det är tänkbart att prova att plocka bort dem och se om $RMSEP$-värdet förbättras utan en för stor förlust i justerad $R^2$. 
 
 # 7 Gruppmedlemmarnas arbetsinsats
 Vi alla började jobba på eget håll med egna modeller osv... för att sedan sammanstråla vid rapportskrivningen.
