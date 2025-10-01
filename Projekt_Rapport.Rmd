@@ -210,7 +210,7 @@ Vi testade först alla variabler utan transformation (förutom $x_4$, $x_5$ och 
 
 Därefter valde vi att gå vidare med annat tillvägagångssätt: med log-transformerade responsvariabeln $y$ och några förklaringsvariabler samt använde andelar för delområdena $x_6$–$x_{15}$. Vi testade alla variabler med dessa transformationer (fortfarande med $x_4$, $x_5$ och $x_{12}$ exkluderade). Efter step-AIC i båda riktningar fick vi en reducerad modell med betydligt lägre VIF. Det justerade $R^2$ var $0.9705$ för den icke-transformerade modellen, vilket var högre än för den transformerade modellen som hade $R^2 = 0.9348$.
 
-Dessa Variabler var i vår modell 
+Dessa variabler analyserade vi i vidare vår process: 
 $$
 \begin{aligned}
 y_{\log} \sim & \text{x1_area_km2_log} + \text{x2_population_log} \\
@@ -222,7 +222,7 @@ y_{\log} \sim & \text{x1_area_km2_log} + \text{x2_population_log} \\
 & + \text{x20_country}.
 \end{aligned}
 $$
-Sedan testade step-aic på modellen och fick vår reducerade förklaringsmodell. 
+Sedan testade step-aic (båda riktningar) på modellen och fick vår reducerade förklaringsmodell. 
 ```{r, results='hide'}
 form_full_log <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
   x6_deciduous_forest_prop + x7_coniferous_forest_prop + x8_mixed_forest_prop +
@@ -233,7 +233,7 @@ fit_full_log <- lm(form_full_log, data=df)
 summary(fit_full_log)
 ```
 
-**Stegvis AIC (båda riktningar).**
+**Stegvis AIC model (båda riktningar).**
 
 ```{r}
 fit_step_log <- MASS::stepAIC(fit_full_log, direction="both", trace=FALSE)
@@ -287,19 +287,12 @@ Vi testade med att ta fram diagnostikplottarna,
 par(mfrow=c(2,2)); plot(fit_full_log)
 ```
 
+I den fulla modellen ser vi starka och signifikanta samband för x2_population_log (+), x16_runoff (+) och x19_treatment_percent (–). x17_swine_log är svagt positiv. Övriga markanvändnings- och djurvariabler, inklusive x18_cattle_log, visar ingen tydlig effekt. På landsnivå ligger SWEDEN lägre än referenslandet Estland ($p<0.01$). Modellens förklaringsgrad är hög med justerat $R^2 \approx 0.93$.
 
-**Full modell:** Starka och signifikanta samband för
-  `x2_population_log` **(+),** `x16_runoff` **(+),** samt `x19_treatment_percent` **(–)**.
-  `x17_swine_log` är svagt **(+)**. Övriga markanvändnings- och djurvariabler (inkl. `x18_cattle_log`) saknar tydlig effekt.
-  **Land:** `SWEDEN` har **lägre nivå** än referensländerna (p < 0.01).
-  Modellens förklaringsgrad är hög (Adj. (R^2 \approx 0.93)).
+Med stegvis AIC kvarstår i huvudsak samma kärnsignaler och modellen förenklas: x2_population_log (+), x16_runoff (+), x17_swine_log (+) och x19_treatment_percent (–). Därutöver framträder svagare markanvändningssamband: x7_coniferous_forest_prop (+), x6_deciduous_forest_prop (positivt, på gränsen), x9_shrubland_prop (positivt, på gränsen) samt x3_urban_percent (negativt, på gränsen). SWEDEN förblir lägre, och anpassningen är i stort sett oförändrad (justerat $R^2 \approx 0.935$).
 
-**Stegvis AIC:** Behåller i huvudsak samma kärnsignaler och förenklar modellen:
-  `x2_population_log` **(+),** `x16_runoff` **(+),** `x17_swine_log` **(+),** `x19_treatment_percent` **(–)**.
-  Dessutom svagare markanvändningssamband: `x7_coniferous_forest_prop` **(+),** `x6_deciduous_forest_prop` **(+, gräns),** `x9_shrubland_prop` **(+, gräns),** samt `x3_urban_percent` **(–, gräns)**.
-  **Land:** `SWEDEN` kvarstår **lägre**. Anpassningen är i stort oförändrad (Adj. (R^2 \approx 0.935)).
+Sammanfattningsvis ökar DIN främst med befolkning, avrinning och antal svin, medan hög anslutning till reningsverk minskar DIN. Skogs- och buskandeler kan bidra svagt positivt. Sverige har en lägre basnivå än övriga länder givet övriga faktorer.
 
-* I hela Östersjöområdet ökar DIN främst med **befolkning**, **avrinning** och **svin**; **hög anslutning till reningsverk minskar** DIN. Skogs-/buskandeler kan bidra svagt positivt. **Sverige har lägre basnivå** än övriga länder givet övriga faktorer.
 
 
 ```{r, results='hide'}
@@ -437,7 +430,6 @@ loocv_rmse <- function(formula, data, response_is_log = FALSE, use_smearing = FA
 ```
 
 **Tre modellfamiljer.**
-
 ```{r}
 # A: log y + log-arealer
 form_A <- y_log ~ x1_area_km2_log + x2_population_log + x3_urban_percent +
@@ -472,6 +464,7 @@ adjr2_C <- summary(fit_C)$adj.r.squared
 data.frame(
   Model = c("LOG-RESP + LOG-AREAS (A)", "LOG-RESP + PROP-AREAS (B)", "RAW-RESP + RAW-ALL (C)"),
   LOOCV_RMSE = c(rmse_A, rmse_B, rmse_C),
+  Relativt_prediktionsfel = c(rmse_A/sd(df$y), rmse_B/sd(df$y), rmse_C/sd(df$y)),
   Adj_R2 = c(adjr2_A, adjr2_B, adjr2_C)
 )
 ```
@@ -495,7 +488,6 @@ summary(fit_C_step)
 ```
 
 **LOOCV för step-modeller.**
-
 ```{r}
 form_A_step <- formula(fit_A_step)
 form_B_step <- formula(fit_B_step)
@@ -518,9 +510,12 @@ data.frame(
             "B_step (LOG-RESP + PROP-AREAS, stepAIC)",
             "C_step (RAW-RESP + RAW, stepAIC)"),
   LOOCV_RMSE = c(rmse_A_step, rmse_B_step, rmse_C_step),
+  Relativt_prediktionsfel = c(rmse_A_step/sd(df$y), rmse_B_step/sd(df$y), rmse_C_step/sd(df$y)),
   Adj_R2 = c(adjr2_A_step, adjr2_B_step, adjr2_C_step)
 )
+
 ```
+
 
 * **A_step (log $y$, log-areor):** behåller $x2_{\text{pop_log}}(+)$, $x16_{\text{runoff}}(+)$, $x17_{\text{swine_log}}(+)$; mark: $x7(+)$, $x9(+)$, $x11(+)$, $x8(-)$; $x3$ svagt $(-)$. $R^2_{\text{adj}}\approx0.943$, LOOCV RMSE $\approx3671$ (bäst).
 
